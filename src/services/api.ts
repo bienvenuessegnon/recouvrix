@@ -94,28 +94,48 @@ async function request<T>(
     );
   }
 
+  const contentType = response.headers.get('content-type') || '';
+  const looksLikeJson = contentType.includes('application/json');
+
+  let rawBody = '';
   let payload: Record<string, unknown> = {};
   try {
-    payload = (await response.json()) as Record<string, unknown>;
+    rawBody = await response.text();
+    if (rawBody) {
+      payload = JSON.parse(rawBody) as Record<string, unknown>;
+    }
   } catch {
     payload = {};
   }
 
+  const gateBlocked =
+    !looksLikeJson ||
+    (typeof payload.error === 'string' &&
+      (payload.error === 'sign_in_required' || payload.error === 'unauthorized')) ||
+    (!rawBody.trim().startsWith('{') && !rawBody.trim().startsWith('['));
+
+  const humanizeApiError = (raw: string | undefined, status: number): string => {
+    if (raw === 'sign_in_required' || raw === 'unauthorized') {
+      return 'Session d’accès à l’application requise. Rouvrez Recouvrix depuis Cursor puis reconnectez-vous.';
+    }
+    if (raw && raw.trim()) return raw;
+    if (status === 401) return 'Identifiant ou mot de passe incorrect.';
+    if (status === 403) return 'Accès refusé. Vérifiez la configuration initiale ou vos droits.';
+    if (status === 429) return 'Trop de requêtes. Réessayez dans un instant.';
+    if (status >= 500) return 'Le serveur est temporairement indisponible. Réessayez.';
+    return `Impossible de traiter la demande (code ${status}).`;
+  };
+
   if (!response.ok) {
-    const errorMessage =
+    const rawError =
       typeof payload.error === 'string'
         ? payload.error
         : typeof payload.message === 'string'
           ? payload.message
-          : response.status === 401
-            ? 'Identifiant ou mot de passe incorrect.'
-            : response.status === 403
-              ? 'Accès refusé. Vérifiez la configuration initiale ou vos droits.'
-              : response.status === 429
-                ? 'Trop de requêtes. Réessayez dans un instant.'
-                : response.status >= 500
-                  ? 'Le serveur est temporairement indisponible. Réessayez.'
-                  : `Impossible de traiter la demande (code ${response.status}).`;
+          : undefined;
+    const errorMessage = gateBlocked && !looksLikeJson
+      ? 'Session d’accès à l’application requise. Rouvrez Recouvrix depuis Cursor puis reconnectez-vous.'
+      : humanizeApiError(rawError, response.status);
     const errorCode = typeof payload.code === 'string' ? payload.code : undefined;
 
     if (response.status === 401 && isProtected) {
@@ -126,6 +146,15 @@ async function request<T>(
     }
 
     throw new ApiError(errorMessage, response.status, errorCode);
+  }
+
+  // Private app gate can return HTML with HTTP 200 — treat as auth barrier.
+  if (!looksLikeJson || (rawBody && !rawBody.trim().startsWith('{') && !rawBody.trim().startsWith('['))) {
+    throw new ApiError(
+      'Session d’accès à l’application requise. Rouvrez Recouvrix depuis Cursor puis reconnectez-vous.',
+      401,
+      'APP_GATE'
+    );
   }
 
   return payload as T;
