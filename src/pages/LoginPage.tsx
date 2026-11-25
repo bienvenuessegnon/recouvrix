@@ -4,6 +4,7 @@ import { RecouvrixLogo } from '../components/brand/RecouvrixLogo';
 import { AlertBanner, Button, Input, LoadingState } from '../components/ui';
 import { ApiError, authApi, setSessionToken } from '../services/api';
 import type { AuthUser } from '../types/auth';
+import heroBackground from '../assets/images/recouvrix-hero-bg.jpg';
 
 export interface LoginPageProps {
   sessionNotice?: string | null;
@@ -132,8 +133,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-canvas)] text-[var(--color-ink)]">
-      <header className="bg-white border-b border-[var(--color-border)]">
+    <div className="relative min-h-screen flex flex-col text-[var(--color-ink)]">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#061018]">
+        <img
+          src={heroBackground}
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full object-cover object-[70%_35%] opacity-55"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(6,16,24,0.82)_0%,rgba(6,16,24,0.55)_45%,rgba(244,247,248,0.92)_72%,#F4F7F8_100%)]" />
+      </div>
+
+      <header className="border-b border-white/10 bg-[#061018]/40 backdrop-blur-md">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <button
             type="button"
@@ -141,7 +152,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             className="text-left rounded-md"
             aria-label="Retour à l’accueil Recouvrix"
           >
-            <RecouvrixLogo variant="light" size="sm" />
+            <RecouvrixLogo variant="dark" size="sm" />
           </button>
 
           <Button
@@ -149,6 +160,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             size="sm"
             icon={<ArrowLeft className="w-4 h-4" />}
             onClick={onBackToLanding}
+            className="text-white hover:bg-white/10"
           >
             Retour à l’accueil
           </Button>

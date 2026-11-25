@@ -17,6 +17,7 @@ import {
 import { RecouvrixLogo } from '../components/brand/RecouvrixLogo';
 import { Button, RecouvrixStatusKey, StatusBadge } from '../components/ui';
 import { formatCurrency, formatDate } from '../design-system/formatters';
+import heroBackground from '../assets/images/recouvrix-hero-bg.jpg';
 
 export interface LandingPageProps {
   onNavigateToAuth: () => void;
@@ -36,7 +37,7 @@ const PREVIEW_ROWS: PreviewRow[] = [
   {
     id: 'p1',
     reference: 'FAC-2026-0418',
-    client: 'Ateliers Mercier SAS',
+    client: 'SOGECOT Bénin SARL',
     dueDate: '2026-10-28',
     amount: 2450000,
     status: 'overdue',
@@ -45,7 +46,7 @@ const PREVIEW_ROWS: PreviewRow[] = [
   {
     id: 'p2',
     reference: 'FAC-2026-0432',
-    client: 'Logistique Valois SARL',
+    client: 'Atlantique Matériaux',
     dueDate: '2026-11-10',
     amount: 875000,
     status: 'pending_verification',
@@ -54,7 +55,7 @@ const PREVIEW_ROWS: PreviewRow[] = [
   {
     id: 'p3',
     reference: 'FAC-2026-0441',
-    client: 'Établissements Moreau',
+    client: 'Les Palmiers SA',
     dueDate: '2026-11-14',
     amount: 1320000,
     status: 'promise',
@@ -63,7 +64,7 @@ const PREVIEW_ROWS: PreviewRow[] = [
   {
     id: 'p4',
     reference: 'FAC-2026-0459',
-    client: 'Cabinet Renaud & Associés',
+    client: 'TPC Bénin',
     dueDate: '2026-11-20',
     amount: 450000,
     status: 'confirmed',
@@ -187,187 +188,173 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-canvas)] text-[var(--color-ink)]">
-      {/* Barre de navigation publique */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[var(--color-border)]">
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-6">
-          <a
-            href="#haut"
-            onClick={(e) => {
-              e.preventDefault();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            aria-label="Accueil Recouvrix"
-            className="whitespace-nowrap shrink-0 rounded-md"
-          >
-            <RecouvrixLogo variant="light" size="sm" />
-          </a>
-
-          <nav
-            aria-label="Navigation principale"
-            className="hidden lg:flex items-center gap-7 text-[14px] font-medium text-[var(--color-ink-secondary)]"
-          >
-            <a
-              href="#fonctionnalites"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('fonctionnalites');
-              }}
-              className="hover:text-[var(--color-ink)] transition-colors whitespace-nowrap shrink-0"
-            >
-              Fonctionnalités
-            </a>
-            <a
-              href="#comment-ca-marche"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('comment-ca-marche');
-              }}
-              className="hover:text-[var(--color-ink)] transition-colors whitespace-nowrap shrink-0"
-            >
-              Comment ça marche
-            </a>
-            <a
-              href="#avantages"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('avantages');
-              }}
-              className="hover:text-[var(--color-ink)] transition-colors whitespace-nowrap shrink-0"
-            >
-              Avantages
-            </a>
-          </nav>
-
-          <div className="hidden lg:flex items-center gap-3 shrink-0">
-            <Button variant="ghost" size="sm" onClick={onNavigateToAuth}>
-              Se connecter
-            </Button>
-            <Button variant="primary" size="sm" onClick={onNavigateToAuth}>
-              Accéder à Recouvrix
-            </Button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen((prev) => !prev)}
-            aria-expanded={mobileNavOpen}
-            aria-label={mobileNavOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-            className="lg:hidden p-2 -mr-2 rounded-md text-[var(--color-ink-secondary)] hover:bg-slate-100 hover:text-[var(--color-ink)]"
-          >
-            {mobileNavOpen ? (
-              <X className="w-5 h-5" aria-hidden="true" />
-            ) : (
-              <Menu className="w-5 h-5" aria-hidden="true" />
-            )}
-          </button>
-        </div>
-
-        {/* Menu mobile compact */}
-        {mobileNavOpen && (
-          <div className="lg:hidden border-t border-[var(--color-border)] bg-white px-4 py-4 space-y-3">
-            <nav aria-label="Navigation mobile" className="flex flex-col space-y-1">
-              <a
-                href="#fonctionnalites"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToSection('fonctionnalites');
-                }}
-                className="px-3 py-2.5 rounded-md text-[15px] font-medium text-[var(--color-ink)] hover:bg-slate-50"
-              >
-                Fonctionnalités
-              </a>
-              <a
-                href="#comment-ca-marche"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToSection('comment-ca-marche');
-                }}
-                className="px-3 py-2.5 rounded-md text-[15px] font-medium text-[var(--color-ink)] hover:bg-slate-50"
-              >
-                Comment ça marche
-              </a>
-              <a
-                href="#avantages"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToSection('avantages');
-                }}
-                className="px-3 py-2.5 rounded-md text-[15px] font-medium text-[var(--color-ink)] hover:bg-slate-50"
-              >
-                Avantages
-              </a>
-            </nav>
-            <div className="pt-2 border-t border-[var(--color-border)] flex flex-col sm:flex-row gap-2.5">
-              <Button variant="secondary" fullWidth onClick={onNavigateToAuth}>
-                Se connecter
-              </Button>
-              <Button variant="primary" fullWidth onClick={onNavigateToAuth}>
-                Accéder à Recouvrix
-              </Button>
-            </div>
-          </div>
-        )}
-      </header>
-
       <main id="haut" className="flex-1">
-        {/* 3. Section principale (Hero) avec image de fond en grand et couche de blanc */}
-        <section className="relative overflow-hidden border-b border-[var(--color-border)] bg-slate-900">
-          {/* Image de fond en grand derrière le texte */}
+        {/* Hero plein écran — image dominante, marque en signal principal */}
+        <section className="relative min-h-[100svh] overflow-hidden bg-[#061018] text-white">
           <div className="absolute inset-0 z-0">
             <img
-              src="/src/assets/images/hero_manager_laptop_1795643251901.jpg"
-              alt="Bureau d'entreprise et gestion financière"
-              className="w-full h-full object-cover object-center scale-105 transform"
-              referrerPolicy="no-referrer"
+              src={heroBackground}
+              alt=""
+              aria-hidden="true"
+              className="hero-kenburns h-full w-full object-cover object-[62%_40%]"
             />
-            {/* Couche de blanc semi-transparente pour que tout ne soit pas identiquement blanc */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/94 via-white/90 to-white/86 backdrop-blur-[1px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(6,16,24,0.88)_0%,rgba(6,16,24,0.62)_42%,rgba(6,16,24,0.28)_68%,rgba(6,16,24,0.45)_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_40%,transparent_0%,rgba(6,16,24,0.35)_70%)]" />
           </div>
 
-          <div className="relative z-10 max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
-            <div className="max-w-3xl space-y-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50/90 border border-blue-200 text-blue-800 text-[13px] font-semibold tracking-wide shadow-sm backdrop-blur-sm">
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
-                Plateforme B2B SaaS de Recouvrement Intelligent pour Entreprises
+          <header className="relative z-20">
+            <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+              <a
+                href="#haut"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                aria-label="Accueil Recouvrix"
+                className="shrink-0 rounded-md"
+              >
+                <RecouvrixLogo variant="dark" size="sm" />
+              </a>
+
+              <nav
+                aria-label="Navigation principale"
+                className="hidden items-center gap-7 text-[14px] font-medium text-white/75 lg:flex"
+              >
+                <a
+                  href="#fonctionnalites"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToSection('fonctionnalites');
+                  }}
+                  className="shrink-0 whitespace-nowrap transition-colors hover:text-white"
+                >
+                  Fonctionnalités
+                </a>
+                <a
+                  href="#comment-ca-marche"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToSection('comment-ca-marche');
+                  }}
+                  className="shrink-0 whitespace-nowrap transition-colors hover:text-white"
+                >
+                  Comment ça marche
+                </a>
+                <a
+                  href="#avantages"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToSection('avantages');
+                  }}
+                  className="shrink-0 whitespace-nowrap transition-colors hover:text-white"
+                >
+                  Avantages
+                </a>
+              </nav>
+
+              <div className="hidden shrink-0 items-center gap-3 lg:flex">
+                <button
+                  type="button"
+                  onClick={onNavigateToAuth}
+                  className="rounded-md px-3 py-2 text-[14px] font-medium text-white/85 transition-colors hover:text-white"
+                >
+                  Se connecter
+                </button>
+                <Button variant="primary" size="sm" onClick={onNavigateToAuth}>
+                  Accéder à Recouvrix
+                </Button>
               </div>
 
-              <div className="space-y-4">
-                <h1 className="font-display text-[38px] sm:text-[52px] lg:text-[60px] font-bold tracking-[-0.03em] leading-[1.08] text-[var(--color-ink)] text-balance">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen((prev) => !prev)}
+                aria-expanded={mobileNavOpen}
+                aria-label={mobileNavOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+                className="rounded-md p-2 -mr-2 text-white/85 hover:bg-white/10 hover:text-white lg:hidden"
+              >
+                {mobileNavOpen ? (
+                  <X className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <Menu className="h-5 w-5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+
+            {mobileNavOpen && (
+              <div className="border-t border-white/10 bg-[#061018]/95 px-4 py-4 backdrop-blur-md lg:hidden">
+                <nav aria-label="Navigation mobile" className="flex flex-col space-y-1">
+                  <a
+                    href="#fonctionnalites"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToSection('fonctionnalites');
+                    }}
+                    className="rounded-md px-3 py-2.5 text-[15px] font-medium text-white hover:bg-white/10"
+                  >
+                    Fonctionnalités
+                  </a>
+                  <a
+                    href="#comment-ca-marche"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToSection('comment-ca-marche');
+                    }}
+                    className="rounded-md px-3 py-2.5 text-[15px] font-medium text-white hover:bg-white/10"
+                  >
+                    Comment ça marche
+                  </a>
+                  <a
+                    href="#avantages"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      scrollToSection('avantages');
+                    }}
+                    className="rounded-md px-3 py-2.5 text-[15px] font-medium text-white hover:bg-white/10"
+                  >
+                    Avantages
+                  </a>
+                </nav>
+                <div className="mt-3 flex flex-col gap-2.5 border-t border-white/10 pt-3 sm:flex-row">
+                  <Button variant="secondary" fullWidth onClick={onNavigateToAuth}>
+                    Se connecter
+                  </Button>
+                  <Button variant="primary" fullWidth onClick={onNavigateToAuth}>
+                    Accéder à Recouvrix
+                  </Button>
+                </div>
+              </div>
+            )}
+          </header>
+
+          <div className="relative z-10 mx-auto flex min-h-[calc(100svh-4rem)] max-w-[1240px] flex-col justify-end px-4 pb-16 pt-20 sm:px-6 sm:pb-20 sm:pt-24 lg:justify-center lg:px-8 lg:pb-28 lg:pt-16">
+            <div className="max-w-2xl space-y-7">
+              <p className="hero-fade-up font-display text-[42px] font-bold leading-none tracking-[-0.04em] text-white sm:text-[56px] lg:text-[72px]">
+                Recouvrix
+              </p>
+              <div className="hero-fade-up hero-fade-up-delay-1 space-y-4">
+                <h1 className="font-display text-[28px] font-semibold leading-[1.15] tracking-[-0.03em] text-white text-balance sm:text-[36px] lg:text-[42px]">
                   Reprenez le contrôle de vos créances clients.
                 </h1>
-                <p className="text-[17px] sm:text-[19px] text-[var(--color-ink-secondary)] leading-relaxed max-w-2xl font-normal">
-                  Recouvrix centralise vos factures impayées, priorise vos actions et automatise vos relances avec un double document (facture + avis de paiement sécurisé QR code / Mobile Money).
+                <p className="max-w-xl text-[16px] font-normal leading-relaxed text-white/78 sm:text-[18px]">
+                  Centralisez les impayés, priorisez les actions et relancez avec facture et avis de paiement QR / Mobile Money.
                 </p>
               </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
+              <div className="hero-fade-up hero-fade-up-delay-2 flex flex-col items-stretch gap-3 pt-1 sm:flex-row sm:items-center">
                 <Button
                   variant="primary"
                   size="lg"
-                  icon={<ArrowRight className="w-4 h-4" />}
+                  icon={<ArrowRight className="h-4 w-4" />}
                   onClick={onNavigateToAuth}
                 >
                   Accéder à la plateforme
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
+                <button
+                  type="button"
                   onClick={() => scrollToSection('fonctionnalites')}
+                  className="rounded-md border border-white/25 bg-white/5 px-5 py-3 text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/12"
                 >
                   Découvrir les fonctionnalités
-                </Button>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200/80 flex flex-wrap items-center gap-6 text-[13px] text-[var(--color-ink-muted)]">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[var(--color-success)]" /> Suivi automatisé des impayés
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[var(--color-success)]" /> Virement & Mobile Money
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-[var(--color-success)]" /> Gouvernance Admin & DAF
-                </span>
+                </button>
               </div>
             </div>
           </div>
@@ -387,7 +374,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white border border-[var(--color-border)] rounded-xl p-6 space-y-3 shadow-xs">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold">
+                <div className="w-10 h-10 rounded-lg bg-[var(--color-primary-soft)] border border-[var(--color-primary)]/20 flex items-center justify-center text-[var(--color-primary)] font-bold">
                   DAF
                 </div>
                 <h3 className="text-base font-semibold text-[var(--color-ink)]">
@@ -552,7 +539,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
                   ))}
                 </ul>
 
-                <div className="bg-[var(--color-primary-soft)] border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <div className="bg-[var(--color-primary-soft)] border border-[var(--color-primary)]/25 rounded-lg p-4 flex items-start gap-3">
                   <ShieldCheck
                     className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5"
                     aria-hidden="true"
@@ -572,7 +559,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
                         Recommandation d’analyse
                       </p>
                       <p className="text-[15px] font-semibold text-[var(--color-ink)]">
-                        Ateliers Mercier SAS · FAC-2026-0418
+                        SOGECOT Bénin SARL · FAC-2026-0418
                       </p>
                     </div>
                     <StatusBadge status="overdue" />

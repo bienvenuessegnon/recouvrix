@@ -41,7 +41,7 @@ export const RecouvrixLogo: React.FC<RecouvrixLogoProps> = ({
           width="29"
           height="29"
           rx="7"
-          fill={isDark ? '#1D4ED8' : '#0F1D2E'}
+          fill={isDark ? '#0E7C7B' : '#0B1C24'}
         />
         {/* Colonnes de grand livre et trait de règlement équilibré */}
         <path
@@ -53,13 +53,13 @@ export const RecouvrixLogo: React.FC<RecouvrixLogoProps> = ({
         />
         <path
           d="M9.5 18.1H15.5"
-          stroke={isDark ? '#93C5FD' : '#60A5FA'}
+          stroke={isDark ? '#9FE0DE' : '#5EC8C6'}
           strokeWidth="2.3"
           strokeLinecap="round"
         />
         <path
           d="M19.2 9.5H22.5V12.8"
-          stroke={isDark ? '#93C5FD' : '#60A5FA'}
+          stroke={isDark ? '#9FE0DE' : '#5EC8C6'}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
