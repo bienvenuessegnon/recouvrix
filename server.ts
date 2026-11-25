@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import express from 'express';
 import path from 'node:path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
 const PORT = Number(process.env.PORT) || 3847;
@@ -1059,6 +1059,22 @@ async function startGateway() {
     next();
   };
 
+  // Lightweight per-user throttle for paid AI routes
+  const aiCallTimestamps = new Map<string, number[]>();
+  const AI_RATE_WINDOW_MS = 60_000;
+  const AI_RATE_MAX = 8;
+
+  function assertAiRateLimit(userId: string): string | null {
+    const now = Date.now();
+    const recent = (aiCallTimestamps.get(userId) || []).filter((t) => now - t < AI_RATE_WINDOW_MS);
+    if (recent.length >= AI_RATE_MAX) {
+      return 'Trop de requêtes IA. Réessayez dans une minute.';
+    }
+    recent.push(now);
+    aiCallTimestamps.set(userId, recent);
+    return null;
+  }
+
   // 1. Health
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -1076,12 +1092,25 @@ async function startGateway() {
     });
   });
 
+  const bootstrapAttempts: number[] = [];
+
   app.post('/api/auth/bootstrap', (req, res) => {
     if (!requiresPasswordBootstrap(db.users)) {
       return res.status(409).json({
         error: 'Les comptes de présentation sont déjà initialisés.',
       });
     }
+    const now = Date.now();
+    while (bootstrapAttempts.length && now - bootstrapAttempts[0] > 15 * 60_000) {
+      bootstrapAttempts.shift();
+    }
+    if (bootstrapAttempts.length >= 5) {
+      return res.status(429).json({
+        error: 'Trop de tentatives d’initialisation. Réessayez plus tard.',
+      });
+    }
+    bootstrapAttempts.push(now);
+
     const { adminPassword, managerPassword } = req.body || {};
     const adminError = validatePasswordStrength(String(adminPassword || ''));
     if (adminError) {
@@ -1426,19 +1455,22 @@ async function startGateway() {
   });
 
   // AI Refresh Route with Gemini SDK
-  app.post('/api/dashboard/ai-refresh', authenticate, async (_req, res) => {
+  app.post('/api/dashboard/ai-refresh', authenticate, async (req: any, res) => {
+    const rateError = assertAiRateLimit(req.user.id);
+    if (rateError) {
+      return res.status(429).json({ error: rateError });
+    }
+
     let summary = 'Analyse de gestion actualisée : Portefeuille sain avec besoin de suivi ciblé des créances supérieures à 20 jours.';
     const activeInvs = db.invoices.filter((i) => !i.isArchived);
 
     if (aiClient) {
       try {
-        const promptData = activeInvs.slice(0, 5).map((inv) => {
+        // Anonymized payload only — no client names or tax IDs leave the server.
+        const promptData = activeInvs.slice(0, 5).map((inv, index) => {
           const fin = calculateInvoiceFinancials(inv);
-          const cli = db.clients.find((c) => c.id === inv.clientId);
           return {
-            reference: inv.reference,
-            client: cli?.name || 'Inconnu',
-            totalFCFA: inv.totalAmount,
+            dossier: `D${index + 1}`,
             soldeRestantFCFA: fin.remainingAmount,
             retardJours: fin.delayDays,
             litige: inv.hasDispute ? 'Oui' : 'Non',
@@ -1447,7 +1479,7 @@ async function startGateway() {
 
         const aiResp = await aiClient.models.generateContent({
           model: 'gemini-4-hydrogen',
-          contents: `En tant qu'analyste financier de Recouvrix, analyse ces créances et propose une synthèse exécutive en 2 phrases pour le gestionnaire :\n${JSON.stringify(promptData)}`,
+          contents: `En tant qu'analyste financier de Recouvrix, analyse ces dossiers anonymisés et propose une synthèse exécutive en 2 phrases pour le gestionnaire :\n${JSON.stringify(promptData)}`,
         });
 
         if (aiResp.text) {
@@ -2608,6 +2640,11 @@ ${390 + streamLen}
 
   // AI Reminder Draft Generation with Gemini
   app.post('/api/reminders/generate-draft', authenticate, async (req: any, res) => {
+    const rateError = assertAiRateLimit(req.user.id);
+    if (rateError) {
+      return res.status(429).json({ error: rateError });
+    }
+
     const { invoiceReference, clientName, channel, amount, delayDays, tone } = req.body || {};
 
     const fallbackSubject = `Rappel d’échéance — Facture ${invoiceReference} (${(amount || 0).toLocaleString()} FCFA)`;
@@ -2621,19 +2658,20 @@ ${390 + streamLen}
 
     if (aiClient) {
       try {
+        // Keep personal names and bank details out of the third-party prompt.
         const prompt = `Tu es un expert en recouvrement financier pour le logiciel Recouvrix. Rédige un message en français formel et soigné.
-Client: ${clientName}
-Facture: ${invoiceReference}
-Montant restant: ${amount} FCFA
-Retard: ${delayDays} jours
+Destinataire: [Nom du client]
+Référence dossier: ${String(invoiceReference || 'FAC-XXXX').replace(/[A-Za-zÀ-ÿ]/g, 'X').slice(0, 12)}
+Montant restant: ${Number(amount) || 0} FCFA
+Retard: ${Number(delayDays) || 0} jours
 Canal: ${channel} (EMAIL ou WHATSAPP)
 Ton souhaité: ${tone || 'Ferme et professionnel'}
-Coordonnées bancaires à inclure: ${db.organization.bankName} - IBAN: ${db.organization.ibanOrRib} - Mobile Money: ${db.organization.mobileMoneyMerchant}
+Inclure un espace pour les instructions de paiement (sans numéro de compte).
 
 Donne ta réponse sous la forme :
 OBJET: [Objet percutant]
 MESSAGE:
-[Corps du message adapté au canal]`;
+[Corps du message adapté au canal, avec le placeholder [Nom du client]]`;
 
         const response = await aiClient.models.generateContent({
           model: 'gemini-4-hydrogen',
@@ -2641,13 +2679,20 @@ MESSAGE:
         });
 
         const text = response.text || '';
+        const displayName = String(clientName || 'Madame, Monsieur');
         if (text.includes('OBJET:') && text.includes('MESSAGE:')) {
           const parts = text.split('MESSAGE:');
           const subject = parts[0].replace('OBJET:', '').trim();
-          const body = parts[1].trim();
+          const body = parts[1]
+            .trim()
+            .replace(/\[Nom du client\]/gi, displayName);
           return res.json({ subject, body, aiGenerated: true });
         } else if (text.trim()) {
-          return res.json({ subject: fallbackSubject, body: text.trim(), aiGenerated: true });
+          return res.json({
+            subject: fallbackSubject,
+            body: text.trim().replace(/\[Nom du client\]/gi, displayName),
+            aiGenerated: true,
+          });
         }
       } catch (err) {
         console.warn('Erreur appel Gemini generate-draft:', err);
@@ -3163,11 +3208,16 @@ MESSAGE:
   // Serve static assets in production or Vite in development
   if (process.env.NODE_ENV === 'production') {
     const distPath = path.resolve(process.cwd(), 'dist');
+    if (!fs.existsSync(distPath)) {
+      console.error(`Dossier dist introuvable (${distPath}). Lancez "npm run build" avant npm start.`);
+      process.exit(1);
+    }
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

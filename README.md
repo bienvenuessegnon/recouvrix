@@ -57,6 +57,17 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
    ```
 4. Accéder à l'application dans le navigateur sur `http://localhost:3847`.
 
+### Déploiement (Render recommandé)
+
+Recouvrix est un monolithe Express + Vite : **Render (Web Service)** est le chemin naturel. Vercel conviendrait mal sans découper API et frontend.
+
+1. Pousser ce dépôt sur GitHub (`bienvenuessegnon/recouvrix`).
+2. Sur Render : Blueprint `render.yaml`, ou Web Service Node avec :
+   - **Build** : `npm ci && npm run build`
+   - **Start** : `npm start`
+   - **Health** : `/api/health`
+3. Renseigner les secrets : `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, optionnellement `GEMINI_API_KEY`.
+
 ### Améliorations produit (pitch)
 
 - Design System retiré de la barre latérale métier ; accessible via le menu profil (« Documentation & Composants UI »).

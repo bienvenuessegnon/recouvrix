@@ -105,7 +105,17 @@ async function request<T>(
     const errorMessage =
       typeof payload.error === 'string'
         ? payload.error
-        : 'Une erreur est survenue lors du traitement de votre demande.';
+        : typeof payload.message === 'string'
+          ? payload.message
+          : response.status === 401
+            ? 'Identifiant ou mot de passe incorrect.'
+            : response.status === 403
+              ? 'Accès refusé. Vérifiez la configuration initiale ou vos droits.'
+              : response.status === 429
+                ? 'Trop de requêtes. Réessayez dans un instant.'
+                : response.status >= 500
+                  ? 'Le serveur est temporairement indisponible. Réessayez.'
+                  : `Impossible de traiter la demande (code ${response.status}).`;
     const errorCode = typeof payload.code === 'string' ? payload.code : undefined;
 
     if (response.status === 401 && isProtected) {
