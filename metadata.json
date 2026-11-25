@@ -1,0 +1,8 @@
+{
+  "name": "Recouvrix",
+  "description": "Plateforme SaaS professionnelle de gestion intelligente du recouvrement des factures impayées.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

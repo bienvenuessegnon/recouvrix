@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Manrope", system-ui, -apple-system, sans-serif;
+  --font-sans: "Public Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-canvas: #F7F8FA;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F1F5F9;
+  --color-sidebar: #0F1D2E;
+  --color-sidebar-hover: #182B42;
+  --color-sidebar-active: #1E3552;
+  --color-sidebar-border: #1E3148;
+
+  --color-ink: #0F172A;
+  --color-ink-secondary: #334155;
+  --color-ink-muted: #64748B;
+
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+
+  --color-primary: #1D4ED8;
+  --color-primary-hover: #1E40AF;
+  --color-primary-active: #1E3A8A;
+  --color-primary-soft: #EFF6FF;
+
+  --color-success: #15803D;
+  --color-success-soft: #F0FDF4;
+  --color-success-border: #BBF7D0;
+
+  --color-warning: #B45309;
+  --color-warning-soft: #FFFBEB;
+  --color-warning-border: #FDE68A;
+
+  --color-overdue: #C2410C;
+  --color-overdue-soft: #FFF7ED;
+  --color-overdue-border: #FED7AA;
+
+  --color-danger: #B91C1C;
+  --color-danger-hover: #991B1B;
+  --color-danger-soft: #FEF2F2;
+  --color-danger-border: #FECACA;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+
+  button:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-amount {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: recouvrix_postgres
+    environment:
+      POSTGRES_DB: recouvrix_db
+      POSTGRES_USER: recouvrix_user
+      POSTGRES_PASSWORD: secure_postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  recouvrix:
+    build: .
+    container_name: recouvrix_app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://recouvrix_user:secure_postgres_password@postgres:5432/recouvrix_db
+      - SESSION_SECRET=change_this_production_session_secret_32_bytes_min
+      - SESSION_TTL_MINUTES=480
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local
