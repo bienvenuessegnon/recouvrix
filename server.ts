@@ -1,10 +1,48 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import express from 'express';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
 const PORT = Number(process.env.PORT) || 3847;
+const SESSION_TTL_MINUTES = Math.max(15, Number(process.env.SESSION_TTL_MINUTES) || 480);
+const SESSION_TTL_MS = SESSION_TTL_MINUTES * 60 * 1000;
+
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt:${salt}:${derived}`;
+}
+
+function verifyPassword(password: string, storedHash: string | null | undefined): boolean {
+  if (!storedHash || typeof password !== 'string') return false;
+  const parts = storedHash.split(':');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const [, salt, originalHex] = parts;
+  try {
+    const candidate = crypto.scryptSync(password, salt, 64);
+    const original = Buffer.from(originalHex, 'hex');
+    if (candidate.length !== original.length) return false;
+    return crypto.timingSafeEqual(candidate, original);
+  } catch {
+    return false;
+  }
+}
+
+function validatePasswordStrength(password: string): string | null {
+  if (!password || password.length < 8) {
+    return 'Le mot de passe doit contenir au moins 8 caractères.';
+  }
+  if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(password) || !/\d/.test(password)) {
+    return 'Le mot de passe doit contenir au moins une lettre et un chiffre.';
+  }
+  return null;
+}
+
+function createSessionToken(): string {
+  return crypto.randomBytes(32).toString('base64url');
+}
 
 // Initialize Gemini AI SDK if API key is provided
 let aiClient: GoogleGenAI | null = null;
@@ -195,11 +233,39 @@ interface UserRecord {
   email: string;
   fullName: string;
   role: 'ADMIN' | 'MANAGER';
+  passwordHash: string | null;
   isActive: boolean;
   isDemo: boolean;
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
+}
+
+interface SessionRecord {
+  userId: string;
+  expiresAt: number;
+}
+
+function publicUser(user: UserRecord) {
+  const { passwordHash: _passwordHash, ...safe } = user;
+  return safe;
+}
+
+function applyDemoPasswordsFromEnv(users: UserRecord[]): void {
+  const adminPass = process.env.DEMO_ADMIN_PASSWORD;
+  const managerPass = process.env.DEMO_MANAGER_PASSWORD;
+  if (adminPass) {
+    const admin = users.find((u) => u.email === 'admin@recouvrix.demo');
+    if (admin) admin.passwordHash = hashPassword(adminPass);
+  }
+  if (managerPass) {
+    const manager = users.find((u) => u.email === 'gestionnaire@recouvrix.demo');
+    if (manager) manager.passwordHash = hashPassword(managerPass);
+  }
+}
+
+function requiresPasswordBootstrap(users: UserRecord[]): boolean {
+  return users.every((u) => !u.passwordHash);
 }
 
 // Initial In-Memory State
@@ -770,24 +836,28 @@ function getInitialData() {
         email: 'admin@recouvrix.demo',
         fullName: 'Directeur Financier (Admin)',
         role: 'ADMIN',
+        passwordHash: null,
         isActive: true,
         isDemo: true,
         createdAt: new Date(now - 60 * day).toISOString(),
         updatedAt: new Date(now - 60 * day).toISOString(),
-        lastLoginAt: new Date().toISOString(),
+        lastLoginAt: null,
       },
       {
         id: 'usr-manager',
         email: 'gestionnaire@recouvrix.demo',
         fullName: 'Gestionnaire Recouvrement',
         role: 'MANAGER',
+        passwordHash: null,
         isActive: true,
         isDemo: true,
         createdAt: new Date(now - 60 * day).toISOString(),
         updatedAt: new Date(now - 60 * day).toISOString(),
-        lastLoginAt: new Date().toISOString(),
+        lastLoginAt: null,
       },
     ];
+
+    applyDemoPasswordsFromEnv(users);
 
     return {
       organization: {
@@ -822,7 +892,7 @@ function getInitialData() {
 }
 
 let db = getInitialData();
-const sessions = new Map<string, string>(); // token -> userId
+const sessions = new Map<string, SessionRecord>();
 
 // Calculation Helpers
 function calculateInvoiceFinancials(inv: InvoiceRecord) {
@@ -973,15 +1043,19 @@ async function startGateway() {
       return res.status(401).json({ error: 'Session non authentifiée. Veuillez vous connecter.' });
     }
     const token = authHeader.split(' ')[1];
-    const userId = sessions.get(token);
-    if (!userId) {
+    const session = sessions.get(token);
+    if (!session || session.expiresAt <= Date.now()) {
+      if (session) sessions.delete(token);
       return res.status(401).json({ error: 'Votre session a expiré. Veuillez vous reconnecter.' });
     }
-    const user = db.users.find((u) => u.id === userId);
-    if (!user) {
-      return res.status(401).json({ error: 'Utilisateur introuvable.' });
+    const user = db.users.find((u) => u.id === session.userId);
+    if (!user || !user.isActive) {
+      sessions.delete(token);
+      return res.status(401).json({ error: 'Utilisateur introuvable ou désactivé.' });
     }
     req.user = user;
+    req.sessionToken = token;
+    req.sessionExpiresAt = session.expiresAt;
     next();
   };
 
@@ -992,49 +1066,103 @@ async function startGateway() {
 
   // 2. Auth Routes
   app.get('/api/auth/status', (_req, res) => {
+    const envDemoConfigured = Boolean(
+      process.env.DEMO_ADMIN_PASSWORD && process.env.DEMO_MANAGER_PASSWORD
+    );
     res.json({
-      requiresInitialSetup: false,
-      envDemoConfigured: true,
+      requiresInitialSetup: requiresPasswordBootstrap(db.users),
+      envDemoConfigured,
       activeOrganizationName: db.organization.name,
     });
   });
 
-  app.post('/api/auth/bootstrap', (_req, res) => {
-    res.json({ message: 'Comptes de démonstration prêts à l’emploi.' });
+  app.post('/api/auth/bootstrap', (req, res) => {
+    if (!requiresPasswordBootstrap(db.users)) {
+      return res.status(409).json({
+        error: 'Les comptes de présentation sont déjà initialisés.',
+      });
+    }
+    const { adminPassword, managerPassword } = req.body || {};
+    const adminError = validatePasswordStrength(String(adminPassword || ''));
+    if (adminError) {
+      return res.status(400).json({ error: `Administrateur : ${adminError}` });
+    }
+    const managerError = validatePasswordStrength(String(managerPassword || ''));
+    if (managerError) {
+      return res.status(400).json({ error: `Gestionnaire : ${managerError}` });
+    }
+    const admin = db.users.find((u) => u.email === 'admin@recouvrix.demo');
+    const manager = db.users.find((u) => u.email === 'gestionnaire@recouvrix.demo');
+    if (!admin || !manager) {
+      return res.status(500).json({ error: 'Comptes de démonstration introuvables.' });
+    }
+    admin.passwordHash = hashPassword(String(adminPassword));
+    admin.updatedAt = new Date().toISOString();
+    manager.passwordHash = hashPassword(String(managerPassword));
+    manager.updatedAt = new Date().toISOString();
+    logActivity(
+      'BOOTSTRAP_COMPLETE',
+      'SECURITY',
+      'system',
+      null,
+      'Mots de passe des comptes de présentation initialisés.'
+    );
+    res.status(201).json({
+      message: 'Les comptes de présentation ont été initialisés de manière sécurisée.',
+    });
   });
 
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body || {};
     const cleanEmail = String(email || '').trim().toLowerCase();
+    const suppliedPassword = String(password || '');
+    if (requiresPasswordBootstrap(db.users)) {
+      return res.status(403).json({
+        error: 'Configuration initiale requise. Définissez d’abord les mots de passe des comptes.',
+      });
+    }
     const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (!user) {
+    if (!user || !user.isActive || !verifyPassword(suppliedPassword, user.passwordHash)) {
+      logActivity(
+        'LOGIN_FAILED',
+        'SECURITY',
+        cleanEmail || 'inconnu',
+        null,
+        'Tentative de connexion refusée.'
+      );
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
-    const token = `tok-${user.id}-${Date.now()}`;
-    sessions.set(token, user.id);
+    const token = createSessionToken();
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    sessions.set(token, { userId: user.id, expiresAt });
     user.lastLoginAt = new Date().toISOString();
-    logActivity('LOGIN_SUCCESS', 'SECURITY', user.email, null, `Connexion réussie de ${user.fullName}.`, user.id);
+    logActivity(
+      'LOGIN_SUCCESS',
+      'SECURITY',
+      user.email,
+      null,
+      `Connexion réussie de ${user.fullName}.`,
+      user.id
+    );
 
     res.json({
       token,
-      expiresAt: new Date(Date.now() + 480 * 60000).toISOString(),
-      user,
+      expiresAt: new Date(expiresAt).toISOString(),
+      user: publicUser(user),
     });
   });
 
   app.post('/api/auth/logout', authenticate, (req: any, res) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const token = authHeader.split(' ')[1];
-      sessions.delete(token);
+    if (req.sessionToken) {
+      sessions.delete(req.sessionToken);
     }
     res.json({ message: 'Déconnexion réussie.' });
   });
 
   app.get('/api/auth/me', authenticate, (req: any, res) => {
     res.json({
-      user: req.user,
-      expiresAt: new Date(Date.now() + 480 * 60000).toISOString(),
+      user: publicUser(req.user),
+      expiresAt: new Date(req.sessionExpiresAt).toISOString(),
     });
   });
 
@@ -1350,12 +1478,26 @@ async function startGateway() {
 
   // 5. Demo Seed & Clear Routes
   app.post('/api/demo/seed', authenticate, (req: any, res) => {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Réinitialisation réservée aux administrateurs.' });
+    }
+    const preservedHashes = new Map(
+      db.users.map((u) => [u.email.toLowerCase(), u.passwordHash] as const)
+    );
     db = getInitialData();
+    for (const user of db.users) {
+      const previous = preservedHashes.get(user.email.toLowerCase());
+      if (previous) user.passwordHash = previous;
+    }
+    applyDemoPasswordsFromEnv(db.users);
     logActivity('DEMO_DATA_SEEDED', 'RECOVERY', req.user.email, null, 'Réinitialisation complète du jeu de données de présentation.', req.user.id);
     res.json({ message: 'Données de démonstration réinitialisées avec succès.' });
   });
 
   app.post('/api/demo/clear', authenticate, (req: any, res) => {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Purge réservée aux administrateurs.' });
+    }
     db.invoices = [];
     db.payments = [];
     db.promises = [];
@@ -2188,18 +2330,21 @@ ${390 + streamLen}
     return Buffer.from(pdf, 'utf8');
   }
 
-  app.get('/api/documents/:id/download', (req: any, res) => {
-    const docId = req.params.id;
+  app.get('/api/documents/:id/download', authenticate, (req: any, res) => {
+    const docId = String(req.params.id || '');
 
     // Notice PDF download
     if (docId.startsWith('notice-') || docId.startsWith('doc-notice-')) {
       const invoiceId = docId.replace(/^notice-|^doc-notice-/, '');
-      const inv = db.invoices.find((i) => i.id === invoiceId) || db.invoices[0];
-      const cli = db.clients.find((c) => c.id === inv?.clientId);
-      const fin = inv ? calculateInvoiceFinancials(inv) : { remainingAmount: 0, delayDays: 0 };
+      const inv = db.invoices.find((i) => i.id === invoiceId);
+      if (!inv) {
+        return res.status(404).json({ error: 'Document de notice introuvable.' });
+      }
+      const cli = db.clients.find((c) => c.id === inv.clientId);
+      const fin = calculateInvoiceFinancials(inv);
       const pdf = buildNoticePdfBuffer(
-        inv ? inv.reference : 'FAC-2026',
-        `${(fin.remainingAmount || 0).toLocaleString()} ${inv?.currency || 'XOF'}`,
+        inv.reference,
+        `${fin.remainingAmount.toLocaleString()} ${inv.currency}`,
         cli ? cli.name : 'Client',
         db.organization,
         fin.delayDays
@@ -2207,7 +2352,7 @@ ${390 + streamLen}
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="notice_instructions_paiement_${inv ? inv.reference : 'FAC'}.pdf"`
+        `attachment; filename="notice_instructions_paiement_${inv.reference}.pdf"`
       );
       return res.send(pdf);
     }
@@ -2215,35 +2360,49 @@ ${390 + streamLen}
     // Original invoice PDF download
     if (docId.startsWith('inv-') || docId.startsWith('invoice-')) {
       const invoiceId = docId.replace(/^inv-|^invoice-/, '');
-      const inv = db.invoices.find((i) => i.id === invoiceId) || db.invoices[0];
-      const cli = db.clients.find((c) => c.id === inv?.clientId);
+      const inv = db.invoices.find((i) => i.id === invoiceId);
+      if (!inv) {
+        return res.status(404).json({ error: 'Facture introuvable.' });
+      }
+      const cli = db.clients.find((c) => c.id === inv.clientId);
       const pdf = buildInvoicePdfBuffer(
-        inv ? inv.reference : 'FAC-2026',
-        `${(inv?.totalAmount || 0).toLocaleString()} ${inv?.currency || 'XOF'}`,
+        inv.reference,
+        `${inv.totalAmount.toLocaleString()} ${inv.currency}`,
         cli ? cli.name : 'Client',
         db.organization
       );
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="facture_originale_${inv ? inv.reference : 'FAC'}.pdf"`
+        `attachment; filename="facture_originale_${inv.reference}.pdf"`
       );
       return res.send(pdf);
     }
 
     // Document in db
     const doc = db.documents.find((d) => d.id === docId);
-    const fileName = doc ? doc.fileName : 'document_officiel.pdf';
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    const defaultPdf = buildNoticePdfBuffer(
-      'FAC-2026',
-      '0 FCFA',
-      'Client',
+    if (!doc) {
+      return res.status(404).json({ error: 'Document introuvable.' });
+    }
+    const linkedInvoice = doc.invoiceId
+      ? db.invoices.find((i) => i.id === doc.invoiceId)
+      : undefined;
+    const linkedClient = linkedInvoice
+      ? db.clients.find((c) => c.id === linkedInvoice.clientId)
+      : undefined;
+    const fin = linkedInvoice
+      ? calculateInvoiceFinancials(linkedInvoice)
+      : { remainingAmount: 0, delayDays: 0 };
+    const pdf = buildNoticePdfBuffer(
+      linkedInvoice?.reference || doc.fileName.replace(/\.pdf$/i, ''),
+      `${fin.remainingAmount.toLocaleString()} XOF`,
+      linkedClient?.name || 'Client',
       db.organization,
-      0
+      fin.delayDays
     );
-    res.send(defaultPdf);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName}"`);
+    return res.send(pdf);
   });
 
   // Get structured payment instructions for an invoice
@@ -2929,19 +3088,31 @@ MESSAGE:
     if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Accès réservé aux administrateurs.' });
     }
-    res.json({ users: db.users });
+    res.json({ users: db.users.map(publicUser) });
   });
 
   app.post('/api/admin/users', authenticate, (req: any, res) => {
     if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Accès réservé aux administrateurs.' });
     }
-    const { fullName, email, role } = req.body || {};
-    const newUser = {
+    const { fullName, email, role, password } = req.body || {};
+    const passwordError = validatePasswordStrength(String(password || ''));
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !fullName) {
+      return res.status(400).json({ error: 'Nom et e-mail sont obligatoires.' });
+    }
+    if (db.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      return res.status(409).json({ error: 'Un compte existe déjà avec cet e-mail.' });
+    }
+    const newUser: UserRecord = {
       id: `usr-${Date.now()}`,
-      email: String(email).trim().toLowerCase(),
+      email: cleanEmail,
       fullName: String(fullName).trim(),
       role: (role || 'MANAGER') as 'ADMIN' | 'MANAGER',
+      passwordHash: hashPassword(String(password)),
       isActive: true,
       isDemo: false,
       createdAt: new Date().toISOString(),
@@ -2950,7 +3121,7 @@ MESSAGE:
     };
     db.users.push(newUser);
     logActivity('USER_CREATED', 'SECURITY', req.user.email, newUser.email, `Création du compte utilisateur ${newUser.fullName} (${newUser.role}).`, req.user.id);
-    res.json({ user: newUser });
+    res.json({ user: publicUser(newUser) });
   });
 
   app.patch('/api/admin/users/:id', authenticate, (req: any, res) => {
@@ -2962,17 +3133,31 @@ MESSAGE:
     if (req.body.fullName) user.fullName = req.body.fullName.trim();
     if (req.body.role) user.role = req.body.role;
     if (req.body.isActive !== undefined) user.isActive = Boolean(req.body.isActive);
+    if (req.body.password) {
+      const passwordError = validatePasswordStrength(String(req.body.password));
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
+      }
+      user.passwordHash = hashPassword(String(req.body.password));
+    }
     user.updatedAt = new Date().toISOString();
     logActivity('USER_UPDATED', 'SECURITY', req.user.email, user.email, `Mise à jour du compte de ${user.fullName}.`, req.user.id);
-    res.json({ user });
+    res.json({ user: publicUser(user) });
   });
 
   app.post('/api/admin/users/reset-demo', authenticate, (req: any, res) => {
     if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Accès réservé aux administrateurs.' });
     }
+    applyDemoPasswordsFromEnv(db.users);
+    if (requiresPasswordBootstrap(db.users)) {
+      return res.status(400).json({
+        error:
+          'Impossible de réinitialiser : définissez DEMO_ADMIN_PASSWORD et DEMO_MANAGER_PASSWORD, ou utilisez la configuration initiale.',
+      });
+    }
     logActivity('DEMO_RESET', 'SECURITY', req.user.email, null, 'Comptes de démonstration réinitialisés.', req.user.id);
-    res.json({ message: 'Comptes de démonstration réinitialisés.', users: db.users });
+    res.json({ message: 'Comptes de démonstration réinitialisés.', users: db.users.map(publicUser) });
   });
 
   // Serve static assets in production or Vite in development

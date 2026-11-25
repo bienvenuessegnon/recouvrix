@@ -31,8 +31,8 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
 ## 3. Architecture technique
 
 - **Frontend** : React 19, TypeScript, Tailwind CSS, composants UI sur mesure et graphiques interactifs.
-- **Backend & API** : Node.js / Express avec services intégrés pour la persistance, l'authentification par jeton en mémoire, la génération de documents et les appels sécurisés au SDK `@google/genai` (Gemini).
-- **Stockage** : Base de données relationnelle (SQLite en développement, PostgreSQL en production via Docker) et stockage confiné pour les pièces justificatives et PDF.
+- **Backend & API** : Node.js / Express (`server.ts`) avec authentification Bearer (scrypt + sessions en mémoire à TTL), génération de documents PDF et appels sécurisés au SDK `@google/genai` (Gemini).
+- **Stockage (démo)** : portefeuille métier en mémoire dans le processus Node (réinitialisé au redémarrage). Un backend FastAPI + PostgreSQL existe sous `backend/` pour une trajectoire production, mais n’est pas démarré par `npm run dev` / `npm start`.
 
 ---
 
@@ -69,15 +69,19 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
 
 ## 5. Comptes de démonstration
 
-Recouvrix intègre deux comptes de présentation pré-configurés :
+Deux comptes de présentation sont prévus :
 - **Directeur Financier (Administrateur)** : `admin@recouvrix.demo`
 - **Gestionnaire de recouvrement** : `gestionnaire@recouvrix.demo`
+
+Les mots de passe ne sont **jamais** acceptés à vide :
+- soit via `DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD` (environnement / secrets Cursor),
+- soit via l’écran de **configuration initiale** au premier lancement (bootstrap).
 
 ---
 
 ## 6. Scénario de démonstration
 
-1. **Connexion** : S'authentifier avec le compte gestionnaire.
+1. **Connexion** : Initialiser les mots de passe si demandé, puis s’authentifier (gestionnaire ou admin).
 2. **Tableau de bord** : Consulter les indicateurs financiers et les priorités recommandées.
 3. **Importation** : Tester l'importation d'un fichier de créances et observer la détection des doublons.
 4. **Relance** : Ouvrir une facture échue, préparer une relance et générer le brouillon assisté par IA.
@@ -88,5 +92,7 @@ Recouvrix intègre deux comptes de présentation pré-configurés :
 
 ## 7. Sécurité & Limites connues
 
-- **Sécurité** : Les clés API Gemini et secrets de session résident exclusivement sur le serveur (`process.env`). Aucun jeton n'est stocké dans le navigateur.
-- **Limites connues** : L'envoi réel d'e-mails de relance nécessite la configuration d'un serveur SMTP externe (en l'absence de SMTP, l'application propose le téléchargement du PDF et la copie du message pour transmission manuelle).
+- **Authentification** : mots de passe hachés (scrypt), sessions Bearer aléatoires avec expiration, téléchargements PDF protégés.
+- **Secrets** : `GEMINI_API_KEY`, `DEMO_*_PASSWORD`, `SESSION_SECRET` / Postgres via variables d’environnement uniquement (voir `docker-compose.yml` — aucun secret en clair, Postgres non exposé sur l’hôte).
+- **Jetons navigateur** : conservés en mémoire (pas de `localStorage`).
+- **Limites connues** : pas d’envoi SMTP réel (copie manuelle / PDF) ; données métier non persistées dans le runtime Node de démo.

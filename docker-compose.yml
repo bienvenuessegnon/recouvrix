@@ -1,30 +1,40 @@
 version: '3.8'
 
+# Secrets must come from the host environment (or a local .env next to this file).
+# Example:
+#   export POSTGRES_PASSWORD='...'
+#   export SESSION_SECRET='...'
+#   docker compose up -d
+#
+# Postgres is reachable only on the Compose network (no host port published).
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: recouvrix_postgres
     environment:
-      POSTGRES_DB: recouvrix_db
-      POSTGRES_USER: recouvrix_user
-      POSTGRES_PASSWORD: secure_postgres_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-recouvrix_db}
+      POSTGRES_USER: ${POSTGRES_USER:-recouvrix_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    # Intentionally no "ports:" — keep the database off the public host interface.
 
   recouvrix:
     build: .
     container_name: recouvrix_app
     ports:
-      - "3000:3000"
+      - "${PORT:-3847}:3847"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATABASE_URL=postgresql://recouvrix_user:secure_postgres_password@postgres:5432/recouvrix_db
-      - SESSION_SECRET=change_this_production_session_secret_32_bytes_min
-      - SESSION_TTL_MINUTES=480
+      NODE_ENV: production
+      PORT: ${PORT:-3847}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-recouvrix_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-recouvrix_db}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in the environment}
+      SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-480}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-}
+      DEMO_MANAGER_PASSWORD: ${DEMO_MANAGER_PASSWORD:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       - postgres
     restart: unless-stopped
