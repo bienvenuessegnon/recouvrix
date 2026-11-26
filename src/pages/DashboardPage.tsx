@@ -13,6 +13,7 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react';
+import { DemoGuideBanner } from '../components/dashboard/DemoGuideBanner';
 import { ReceivablesChart } from '../components/dashboard/ReceivablesChart';
 import {
   AlertBanner,
@@ -248,6 +249,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="space-y-6">
+      <DemoGuideBanner onNavigate={onNavigate} />
+
       {/* Mention claire lorsque le jeu de données de présentation est actif */}
       {metrics.isDemoDataActive && !metrics.isEmpty && (
         <AlertBanner

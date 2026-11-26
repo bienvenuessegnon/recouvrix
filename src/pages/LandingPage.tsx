@@ -243,7 +243,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
               Se connecter
             </Button>
             <Button variant="primary" size="sm" onClick={onNavigateToAuth}>
-              Accéder à Recouvrix
+              Créer un compte démo
             </Button>
           </div>
 
@@ -302,7 +302,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
                 Se connecter
               </Button>
               <Button variant="primary" fullWidth onClick={onNavigateToAuth}>
-                Accéder à Recouvrix
+                Créer un compte démo
               </Button>
             </div>
           </div>
