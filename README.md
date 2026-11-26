@@ -92,7 +92,7 @@ Deux comptes de présentation sont prévus :
 - **Gestionnaire de recouvrement** : `gestionnaire@recouvrix.demo`
 
 Les mots de passe sont **obligatoires** via les secrets d’environnement
-`DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD` (Cursor, Render, `.env` local).
+`DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD` (Render, `.env` local).
 Il n’existe plus d’initialisation publique des mots de passe.
 
 ---
