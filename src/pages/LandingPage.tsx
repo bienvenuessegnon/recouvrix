@@ -317,11 +317,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToAuth }) =>
             <img
               src="/src/assets/images/hero_manager_laptop_1795643251901.jpg"
               alt="Bureau d'entreprise et gestion financière"
-              className="w-full h-full object-cover object-center scale-105 transform"
+              className="w-full h-full object-cover object-[70%_center] scale-105 transform"
               referrerPolicy="no-referrer"
             />
-            {/* Couche de blanc semi-transparente pour que tout ne soit pas identiquement blanc */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/94 via-white/90 to-white/86 backdrop-blur-[1px]" />
+            {/* Voile stratégique : lisibilité à gauche, photo visible à droite */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/88 via-white/55 to-white/15" />
+            <div className="absolute inset-y-0 left-0 w-full max-w-3xl bg-gradient-to-r from-white/50 via-white/20 to-transparent" />
           </div>
 
           <div className="relative z-10 max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
