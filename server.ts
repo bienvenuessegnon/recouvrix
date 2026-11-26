@@ -1087,8 +1087,44 @@ function logActivity(
 
 async function startGateway() {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '5mb' }));
   app.set('trust proxy', 1);
+
+  // CORS — frontend Vercel (et origines listées dans CORS_ORIGINS)
+  app.use((req, res, next) => {
+    const origin = String(req.headers.origin || '');
+    const extra = String(process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    let vercelHost = false;
+    try {
+      vercelHost = origin ? /\.vercel\.app$/i.test(new URL(origin).hostname) : false;
+    } catch {
+      vercelHost = false;
+    }
+    const allowed =
+      !origin ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1') ||
+      vercelHost ||
+      extra.includes(origin);
+
+    if (origin && allowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Authorization, Content-Type, Idempotency-Key'
+      );
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    return next();
+  });
 
   // Authentication Middleware
   const authenticate = (req: any, res: any, next: any) => {

@@ -62,16 +62,18 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
 - Comptes démo `admin@recouvrix.demo` / `gestionnaire@recouvrix.demo` uniquement si vous définissez `DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD`.
 - Fichiers de test : `/api/demo/sample/sample_creances.csv` et `/api/demo/sample/sample_portefeuille_entree.pdf`.
 
-### Déploiement (Render recommandé)
+### Déploiement
 
-Recouvrix est un monolithe Express + Vite : **Render (Web Service)** est le chemin naturel. Vercel conviendrait mal sans découper API et frontend.
+**Option A — tout-en-un Render** (API + UI)  
+1. Pousser sur GitHub (`bienvenuessegnon/recouvrix`).  
+2. Web Service Node : build `npm ci && npm run build`, start `npm start`, health `/api/health`.  
+3. Secrets : `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, optionnellement `GEMINI_API_KEY`.
 
-1. Pousser ce dépôt sur GitHub (`bienvenuessegnon/recouvrix`).
-2. Sur Render : Blueprint `render.yaml`, ou Web Service Node avec :
-   - **Build** : `npm ci && npm run build`
-   - **Start** : `npm start`
-   - **Health** : `/api/health`
-3. Secrets recommandés : `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, optionnellement `GEMINI_API_KEY`. Sans ces secrets, utilisez la création de compte.
+**Option B — frontend Vercel + API Render**  
+1. API sur Render (comme ci-dessus).  
+2. Projet Vercel (`vercel.json`) : build Vite → `dist`.  
+3. Variable `VITE_API_BASE_URL=https://recouvrix-saas.onrender.com` (Production + Preview).  
+4. Sur Render, optionnel : `CORS_ORIGINS=https://votre-app.vercel.app`.
 
 ### Améliorations produit (pitch)
 

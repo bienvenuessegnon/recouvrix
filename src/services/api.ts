@@ -52,6 +52,19 @@ export class ApiError extends Error {
   }
 }
 
+/** Base API URL — vide en local (même origine), Render en prod Vercel. */
+export function getApiBaseUrl(): string {
+  const raw = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+  return raw.replace(/\/$/, '');
+}
+
+export function apiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = getApiBaseUrl();
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${normalized}`;
+}
+
 let inMemoryToken: string | null = null;
 let unauthorizedHandler: ((reason?: string) => void) | null = null;
 
@@ -82,7 +95,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       ...options,
       headers,
     });
@@ -459,7 +472,7 @@ export const invoicesApi = {
 
     let response: Response;
     try {
-      response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/documents`, {
+      response = await fetch(apiUrl(`/api/invoices/${encodeURIComponent(invoiceId)}/documents`), {
         method: 'POST',
         headers,
         body: formData,
@@ -504,7 +517,7 @@ export const documentsApi = {
 
     let response: Response;
     try {
-      response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/download`, {
+      response = await fetch(apiUrl(`/api/documents/${encodeURIComponent(documentId)}/download`), {
         method: 'GET',
         headers,
       });
@@ -558,7 +571,7 @@ export const importsApi = {
 
     let response: Response;
     try {
-      response = await fetch('/api/imports/preview', {
+      response = await fetch(apiUrl('/api/imports/preview'), {
         method: 'POST',
         headers,
         body: formData,
@@ -602,7 +615,7 @@ export const importsApi = {
 
     let response: Response;
     try {
-      response = await fetch('/api/imports/commit', {
+      response = await fetch(apiUrl('/api/imports/commit'), {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -645,7 +658,7 @@ export const importsApi = {
 
     let response: Response;
     try {
-      response = await fetch('/api/imports/history', {
+      response = await fetch(apiUrl('/api/imports/history'), {
         method: 'GET',
         headers,
       });

@@ -23,7 +23,7 @@ import {
   useToast,
 } from '../components/ui';
 import { formatCurrency, formatDateTime } from '../design-system/formatters';
-import { ApiError, importsApi } from '../services/api';
+import { ApiError, apiUrl, importsApi } from '../services/api';
 
 export interface ImportsPageProps {
   initialFilter?: string;
@@ -316,7 +316,7 @@ export const ImportsPage: React.FC<ImportsPageProps> = ({ initialFilter, onNavig
               </ul>
               <div className="mt-4 flex flex-col gap-2">
                 <a
-                  href="/api/demo/sample/sample_creances.csv"
+                  href={apiUrl('/api/demo/sample/sample_creances.csv')}
                   download="sample_creances.csv"
                   className="inline-flex items-center gap-2 text-xs font-medium text-blue-700 hover:text-blue-900"
                 >
@@ -324,7 +324,7 @@ export const ImportsPage: React.FC<ImportsPageProps> = ({ initialFilter, onNavig
                   Télécharger l’exemple CSV (5 créances)
                 </a>
                 <a
-                  href="/api/demo/sample/sample_portefeuille_entree.pdf"
+                  href={apiUrl('/api/demo/sample/sample_portefeuille_entree.pdf')}
                   download="sample_portefeuille_entree.pdf"
                   className="inline-flex items-center gap-2 text-xs font-medium text-blue-700 hover:text-blue-900"
                 >
