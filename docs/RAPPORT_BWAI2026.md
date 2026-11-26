@@ -1,11 +1,11 @@
 # Rapport Recouvrix — Hackathon BWAI’2026
 
-**Cas pratique 1** — Recouvrement automatique des factures impayées  
-**Prototype** : Recouvrix (React + Express + SQLite démo)  
-**Référence TDR** : BWAI Benin Workshop on Artificial Intelligence 2026  
-**Version code** : commit figé au moment de la remise (empreinte GitHub / Origin)
-
----
+| Champ | Valeur |
+|---|---|
+| Cas pratique | Cas 1 — Recouvrement automatique des factures impayées |
+| Prototype | Recouvrix (React + Express + SQLite démo) |
+| Référence | BWAI Benin Workshop on Artificial Intelligence 2026 |
+| Version | Empreinte de commit GitHub / Origin à la remise |
 
 ## 1. Besoin
 
