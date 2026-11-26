@@ -29,11 +29,6 @@ export interface AuthStatusResponse {
   authReady?: boolean;
   registrationOpen?: boolean;
   activeOrganizationName?: string;
-  demoHints?: {
-    adminEmail?: string;
-    managerEmail?: string;
-    passwordHint?: string | null;
-  };
 }
 
 export interface LoginResponse {

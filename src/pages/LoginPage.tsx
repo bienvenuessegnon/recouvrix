@@ -23,12 +23,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [authReady, setAuthReady] = useState(true);
   const [registrationOpen, setRegistrationOpen] = useState(true);
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [demoHint, setDemoHint] = useState<{
-    adminEmail?: string;
-    managerEmail?: string;
-    passwordHint?: string | null;
-  } | null>(null);
+  const [mode, setMode] = useState<AuthMode>('register');
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,12 +45,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       try {
         const status = await authApi.getStatus();
         if (mounted) {
-          setRegistrationOpen(status.registrationOpen !== false);
-          setDemoHint(status.demoHints || null);
+          const canRegister = status.registrationOpen !== false;
+          setRegistrationOpen(canRegister);
+          setMode(canRegister ? 'register' : 'login');
           if (typeof status.authReady === 'boolean') {
             setAuthReady(status.authReady);
           } else {
-            setAuthReady(Boolean(status.envDemoConfigured) || status.registrationOpen !== false);
+            setAuthReady(Boolean(status.envDemoConfigured) || canRegister);
           }
         }
       } catch (err) {
@@ -77,14 +73,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       mounted = false;
     };
   }, []);
-
-  const fillDemoManager = () => {
-    setMode('login');
-    setEmail(demoHint?.managerEmail || 'gestionnaire@recouvrix.demo');
-    setPassword(demoHint?.passwordHint || 'RecouvrixDemo1');
-    setErrorMessage(null);
-    setFieldErrors({});
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,15 +196,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     Accès non configuré
                   </h1>
                   <p className="text-[14px] text-[var(--color-ink-secondary)] leading-relaxed">
-                    Les secrets serveur DEMO_ADMIN_PASSWORD et DEMO_MANAGER_PASSWORD doivent être
-                    définis pour activer la connexion.
+                    Définissez DEMO_ADMIN_PASSWORD et DEMO_MANAGER_PASSWORD, ou activez la
+                    création de compte publique.
                   </p>
                 </div>
               </div>
               <AlertBanner
                 tone="warning"
                 title="Configuration requise"
-                description="Renseignez les secrets sur Render ou dans votre environnement, puis redémarrez le service."
+                description="Renseignez les secrets sur le serveur d’hébergement, puis redémarrez le service."
               />
             </div>
           ) : (
@@ -229,8 +217,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </h1>
                   <p className="text-[14px] text-[var(--color-ink-muted)]">
                     {mode === 'login'
-                      ? 'Accédez à votre espace Recouvrix ou créez un compte démo en quelques secondes.'
-                      : 'Compte stocké en base SQLite locale — idéal pour la démo BWAI.'}
+                      ? 'Connectez-vous avec votre e-mail et votre mot de passe.'
+                      : 'Créez votre accès démo en quelques secondes, puis importez vos créances.'}
                   </p>
                 </div>
               </div>
@@ -360,24 +348,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   >
                     Se connecter
                   </Button>
-
-                  {demoHint?.passwordHint && (
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-canvas)] p-3 space-y-2">
-                      <p className="text-[12px] text-[var(--color-ink-secondary)] leading-relaxed">
-                        Compte démo prêt :{' '}
-                        <span className="font-medium text-[var(--color-ink)]">
-                          {demoHint.managerEmail}
-                        </span>{' '}
-                        /{' '}
-                        <span className="font-medium text-[var(--color-ink)]">
-                          {demoHint.passwordHint}
-                        </span>
-                      </p>
-                      <Button type="button" variant="secondary" size="sm" fullWidth onClick={fillDemoManager}>
-                        Remplir le compte gestionnaire
-                      </Button>
-                    </div>
-                  )}
                 </form>
               ) : (
                 <form onSubmit={handleRegisterSubmit} className="space-y-4" noValidate>

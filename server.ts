@@ -252,16 +252,19 @@ function publicUser(user: UserRecord) {
   return safe;
 }
 
-/** Mots de passe démo locaux si les secrets Render ne sont pas encore définis. */
-const DEMO_DEFAULT_ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || 'RecouvrixDemo1';
-const DEMO_DEFAULT_MANAGER_PASSWORD = process.env.DEMO_MANAGER_PASSWORD || 'RecouvrixDemo1';
 const REGISTRATION_OPEN = process.env.ALLOW_PUBLIC_REGISTER !== 'false';
 
 function applyDemoPasswordsFromEnv(users: UserRecord[]): void {
-  const admin = users.find((u) => u.email === 'admin@recouvrix.demo');
-  if (admin) admin.passwordHash = hashPassword(DEMO_DEFAULT_ADMIN_PASSWORD);
-  const manager = users.find((u) => u.email === 'gestionnaire@recouvrix.demo');
-  if (manager) manager.passwordHash = hashPassword(DEMO_DEFAULT_MANAGER_PASSWORD);
+  const adminPass = process.env.DEMO_ADMIN_PASSWORD;
+  const managerPass = process.env.DEMO_MANAGER_PASSWORD;
+  if (adminPass) {
+    const admin = users.find((u) => u.email === 'admin@recouvrix.demo');
+    if (admin) admin.passwordHash = hashPassword(adminPass);
+  }
+  if (managerPass) {
+    const manager = users.find((u) => u.email === 'gestionnaire@recouvrix.demo');
+    if (manager) manager.passwordHash = hashPassword(managerPass);
+  }
 }
 
 function requiresPasswordBootstrap(users: UserRecord[]): boolean {
@@ -1142,12 +1145,6 @@ async function startGateway() {
       registrationOpen: REGISTRATION_OPEN,
       authReady: REGISTRATION_OPEN || !requiresPasswordBootstrap(db.users),
       activeOrganizationName: db.organization.name,
-      demoHints: {
-        adminEmail: 'admin@recouvrix.demo',
-        managerEmail: 'gestionnaire@recouvrix.demo',
-        // Mot de passe commun uniquement si secrets non fournis (démo locale / Render).
-        passwordHint: envDemoConfigured ? null : 'RecouvrixDemo1',
-      },
     });
   });
 
