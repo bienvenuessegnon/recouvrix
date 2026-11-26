@@ -1,6 +1,6 @@
 # Pitch Recouvrix — BWAI'2026
 
-Diaporama prêt pour demain : [`Recouvrix_Pitch_BWAI2026.pdf`](./Recouvrix_Pitch_BWAI2026.pdf)  
+Diaporama prêt pour demain : [`Recouvrix_Pitch_BWAI2026.pdf`](./Recouvrix_Pitch_BWAI2026.pdf) · [`Recouvrix_Pitch_BWAI2026.pptx`](./Recouvrix_Pitch_BWAI2026.pptx)  
 Régénération : `python3 scripts/generate_pitch_deck.py`  
 Site BWAI : [bwai-ifri-uac.bj](https://bwai-ifri-uac.bj/)
 
