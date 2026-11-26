@@ -29,7 +29,7 @@ Hors périmètre IA : calcul des soldes, retards, doublons, idempotence, statuts
 | Jeu | Contenu | Usage |
 |---|---|---|
 | Démo seed | Portefeuille fictif PME béninoises (clients, factures, paiements, litiges) | Démonstration jury |
-| Import test | `sample_creances.csv` / `sample_portefeuille_entree.pdf` | Scénario d’entrée |
+| Import test | sample_creances.csv et sample_portefeuille_entree.pdf | Scénario d’entrée |
 | Production | non applicable (prototype) | — |
 
 Aucune donnée personnelle réelle n’est utilisée. Les paiements Mobile Money / virements sont **fictifs et signalés**.
