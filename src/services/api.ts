@@ -29,8 +29,10 @@ import type {
   GenerateDraftRequest,
   GenerateDraftResponse,
   PaymentInstructionsData,
+  ReminderChannel,
   ReminderItem,
   ReminderListResponse,
+  ReminderStatus,
 } from '../types/reminders';
 import type {
   ConfirmPaymentPayload,
@@ -720,6 +722,35 @@ export const remindersApi = {
   create: (payload: Partial<ReminderItem>) =>
     request<ReminderItem>(
       '/api/reminders',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      true
+    ),
+
+  /** Envoi simulé avec recontrôle solde / litige / coordonnées. */
+  send: (
+    id: string,
+    payload: {
+      subject?: string;
+      bodyPreview?: string;
+      attachOriginalInvoice?: boolean;
+      attachPaymentInstructions?: boolean;
+    } = {}
+  ) =>
+    request<{
+      success: boolean;
+      simulated: boolean;
+      message: string;
+      channel: ReminderChannel;
+      destination: string | null;
+      deepLink: string | null;
+      reminder: Partial<ReminderItem> & { id: string; status: ReminderStatus };
+      cancelled?: boolean;
+      code?: string;
+    }>(
+      `/api/reminders/${encodeURIComponent(id)}/send`,
       {
         method: 'POST',
         body: JSON.stringify(payload),

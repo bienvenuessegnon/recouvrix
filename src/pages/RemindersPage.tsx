@@ -38,7 +38,7 @@ import {
   formatDelayDays,
   formatNumber,
 } from '../design-system/formatters';
-import { invoicesApi, remindersApi } from '../services/api';
+import { ApiError, invoicesApi, remindersApi } from '../services/api';
 import { PaymentInstructionsNoticeModal } from '../components/reminders/PaymentInstructionsNoticeModal';
 import type { InvoiceListItem } from '../types/invoices';
 import type {
@@ -262,6 +262,9 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
 
   const handleSaveDrawer = async (newStatus?: ReminderStatus) => {
     if (!selectedReminder) return;
+    if (newStatus === 'SENT') {
+      return handleSendSimulated();
+    }
     setSavingAction(true);
     try {
       const updated = await remindersApi.update(selectedReminder.id, {
@@ -286,18 +289,80 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
         title: 'Relance mise à jour',
         description:
           newStatus === 'VALIDATED'
-            ? 'La relance est validée avec ses 2 documents joints et prête pour expédition.'
-            : newStatus === 'SENT'
-            ? 'La relance et ses 2 documents PDF ont été marqués comme envoyés.'
+            ? 'Relance validée — le recontrôle solde / litige se fera juste avant l’envoi simulé.'
             : 'Modifications et pièces jointes sauvegardées avec succès.',
       });
 
       loadReminders();
-    } catch {
+    } catch (err) {
       notify({
         tone: 'error',
         title: 'Erreur',
-        description: 'Impossible de mettre à jour la relance.',
+        description:
+          err instanceof ApiError ? err.message : 'Impossible de mettre à jour la relance.',
+      });
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
+  const handleSendSimulated = async () => {
+    if (!selectedReminder) return;
+    setSavingAction(true);
+    try {
+      const result = await remindersApi.send(selectedReminder.id, {
+        subject: editedSubject,
+        bodyPreview: editedBody,
+        attachOriginalInvoice: attachInvoice,
+        attachPaymentInstructions: attachPaymentInstructions,
+      });
+
+      if (result.deepLink) {
+        window.open(result.deepLink, '_blank', 'noopener,noreferrer');
+      }
+
+      setSelectedReminder({
+        ...selectedReminder,
+        ...result.reminder,
+        status: result.reminder.status,
+        subject: result.reminder.subject || editedSubject,
+        bodyPreview: result.reminder.bodyPreview || editedBody,
+        sentAt: result.reminder.sentAt || new Date().toISOString(),
+      });
+
+      notify({
+        tone: 'success',
+        title: 'Envoi simulé réussi',
+        description:
+          result.message ||
+          `Transmission ${result.channel} vers ${result.destination || 'le client'} (canal fictif, signalé comme tel).`,
+      });
+
+      loadReminders();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Impossible d’envoyer la relance.';
+      const cancelCodes = [
+        'ZERO_BALANCE',
+        'DISPUTE_OPEN',
+        'MISSING_EMAIL',
+        'MISSING_PHONE',
+        'CLIENT_ARCHIVED',
+      ];
+      const cancelled =
+        err instanceof ApiError && cancelCodes.includes(String(err.code || ''));
+
+      if (cancelled) {
+        setSelectedReminder((prev) =>
+          prev ? { ...prev, status: 'CANCELLED' } : prev
+        );
+        loadReminders();
+      }
+
+      notify({
+        tone: 'error',
+        title: cancelled ? 'Envoi annulé après contrôle' : 'Échec de l’envoi',
+        description: message,
       });
     } finally {
       setSavingAction(false);
@@ -671,15 +736,16 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
                   </Button>
                 )}
 
-                {selectedReminder.status === 'VALIDATED' && (
+                {(selectedReminder.status === 'VALIDATED' ||
+                  selectedReminder.status === 'PREPARED') && (
                   <Button
                     variant="primary"
                     size="sm"
                     loading={savingAction}
-                    onClick={() => handleSaveDrawer('SENT')}
+                    onClick={() => handleSendSimulated()}
                     icon={<Send className="w-3.5 h-3.5" />}
                   >
-                    Marquer comme envoyée
+                    Envoyer (simulé)
                   </Button>
                 )}
               </div>
@@ -760,50 +826,69 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
             </div>
 
             {/* Direct Channel External Action */}
-            <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg flex items-center justify-between gap-3">
+            <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-[13px] text-blue-900">
                 {selectedReminder.channel === 'WHATSAPP' ? (
                   <>
                     <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      Envoi via WhatsApp au <strong>{selectedReminder.clientPhone || 'N/A'}</strong>
+                      Canal WhatsApp (simulé) · <strong>{selectedReminder.clientPhone || 'N/A'}</strong>
+                    </span>
+                  </>
+                ) : selectedReminder.channel === 'PHONE' ? (
+                  <>
+                    <Phone className="w-4 h-4 text-slate-600 shrink-0" />
+                    <span>
+                      Canal appel (simulé) · <strong>{selectedReminder.clientPhone || 'N/A'}</strong>
                     </span>
                   </>
                 ) : (
                   <>
                     <Mail className="w-4 h-4 text-blue-600 shrink-0" />
                     <span>
-                      Envoi par Email à <strong>{selectedReminder.clientEmail || 'N/A'}</strong>
+                      Canal e-mail (simulé) · <strong>{selectedReminder.clientEmail || 'N/A'}</strong>
                     </span>
                   </>
                 )}
               </div>
 
-              {selectedReminder.channel === 'WHATSAPP' && selectedReminder.clientPhone && (
-                <a
-                  href={`https://wa.me/${selectedReminder.clientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                    editedBody
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Ouvrir WhatsApp Web
-                </a>
-              )}
-
-              {selectedReminder.channel === 'EMAIL' && selectedReminder.clientEmail && (
-                <a
-                  href={`mailto:${selectedReminder.clientEmail}?subject=${encodeURIComponent(
-                    editedSubject
-                  )}&body=${encodeURIComponent(editedBody)}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Ouvrir client Email
-                </a>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedReminder.status !== 'SENT' && selectedReminder.status !== 'CANCELLED' && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={savingAction}
+                    onClick={() => handleSendSimulated()}
+                    icon={<Send className="w-3.5 h-3.5" />}
+                  >
+                    Envoyer (simulé)
+                  </Button>
+                )}
+                {selectedReminder.channel === 'WHATSAPP' && selectedReminder.clientPhone && (
+                  <a
+                    href={`https://wa.me/${selectedReminder.clientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      editedBody
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    WhatsApp
+                  </a>
+                )}
+                {selectedReminder.channel === 'EMAIL' && selectedReminder.clientEmail && (
+                  <a
+                    href={`mailto:${selectedReminder.clientEmail}?subject=${encodeURIComponent(
+                      editedSubject
+                    )}&body=${encodeURIComponent(editedBody)}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    E-mail
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* AI Assistant Section */}

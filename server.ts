@@ -2708,18 +2708,28 @@ ${390 + streamLen}
     const rem = db.reminders.find((r) => r.id === req.params.id);
     if (!rem) return res.status(404).json({ error: 'Relance introuvable.' });
     const { status, subject, bodyPreview, attachOriginalInvoice, attachPaymentInstructions } = req.body || {};
+
+    // L’envoi simulé passe exclusivement par POST /api/reminders/:id/send
+    if (status === 'SENT') {
+      return res.status(400).json({
+        error:
+          'Utilisez « Envoyer (simulé) » : l’envoi vérifie le solde, le litige et les préférences avant transmission.',
+        code: 'USE_SEND_ENDPOINT',
+      });
+    }
+
     if (status) {
       rem.status = status;
       if (status === 'VALIDATED') rem.validatedAt = new Date().toISOString();
-      if (status === 'SENT') rem.sentAt = new Date().toISOString();
+      if (status === 'CANCELLED') rem.sentAt = null;
     }
-    if (subject) rem.subject = subject;
-    if (bodyPreview) rem.bodyPreview = bodyPreview;
+    if (subject !== undefined) rem.subject = String(subject);
+    if (bodyPreview !== undefined) rem.bodyPreview = String(bodyPreview);
     if (typeof attachOriginalInvoice === 'boolean') rem.attachOriginalInvoice = attachOriginalInvoice;
     if (typeof attachPaymentInstructions === 'boolean') rem.attachPaymentInstructions = attachPaymentInstructions;
 
-    // If validated or sent, automatically attach official payment notice PDF with QR code & banking/momo instructions to invoice documents
-    if (status === 'VALIDATED' || status === 'SENT') {
+    // Si validée : rattacher la notice de paiement (facture + instructions) au dossier
+    if (status === 'VALIDATED') {
       const inv = db.invoices.find((i) => i.id === rem.invoiceId);
       if (inv) {
         const noticeDocId = `doc-notice-${rem.id}`;
@@ -2742,17 +2752,204 @@ ${390 + streamLen}
           });
         }
       }
+      logActivity(
+        'REMINDER_VALIDATED',
+        'RECOVERY',
+        req.user.email,
+        rem.subject,
+        `Relance validée — prête pour envoi simulé via ${rem.channel}.`,
+        req.user.id
+      );
+    } else if (status === 'CANCELLED') {
+      logActivity(
+        'REMINDER_CANCELLED',
+        'RECOVERY',
+        req.user.email,
+        rem.subject,
+        `Relance annulée après contrôle (statut ${rem.status}).`,
+        req.user.id
+      );
     }
 
+    res.json(rem);
+  });
+
+  // Envoi simulé — révérifie solde / litige / préférences juste avant transmission (TDR)
+  app.post('/api/reminders/:id/send', authenticate, (req: any, res) => {
+    const rem = db.reminders.find((r) => r.id === req.params.id);
+    if (!rem) return res.status(404).json({ error: 'Relance introuvable.', code: 'NOT_FOUND' });
+
+    if (rem.status === 'SENT') {
+      return res.status(409).json({
+        error: 'Cette relance a déjà été transmise (idempotence).',
+        code: 'ALREADY_SENT',
+      });
+    }
+    if (rem.status === 'CANCELLED') {
+      return res.status(409).json({
+        error: 'Relance annulée — envoi impossible.',
+        code: 'CANCELLED',
+      });
+    }
+    if (rem.status !== 'VALIDATED' && rem.status !== 'PREPARED') {
+      return res.status(409).json({
+        error: 'Seules les relances préparées ou validées peuvent être envoyées.',
+        code: 'INVALID_STATUS',
+      });
+    }
+
+    const inv = db.invoices.find((i) => i.id === rem.invoiceId);
+    const cli = db.clients.find((c) => c.id === rem.clientId);
+    if (!inv || !cli) {
+      return res.status(404).json({ error: 'Facture ou client introuvable.', code: 'MISSING_CONTEXT' });
+    }
+
+    // Appliquer le corps / objet éventuellement retouchés juste avant envoi
+    if (req.body?.subject) rem.subject = String(req.body.subject);
+    if (req.body?.bodyPreview) rem.bodyPreview = String(req.body.bodyPreview);
+    if (typeof req.body?.attachOriginalInvoice === 'boolean') {
+      rem.attachOriginalInvoice = req.body.attachOriginalInvoice;
+    }
+    if (typeof req.body?.attachPaymentInstructions === 'boolean') {
+      rem.attachPaymentInstructions = req.body.attachPaymentInstructions;
+    }
+
+    const fin = calculateInvoiceFinancials(inv);
+    const checks: Array<{ ok: boolean; code: string; message: string }> = [];
+
+    if (fin.remainingAmount <= 0) {
+      checks.push({
+        ok: false,
+        code: 'ZERO_BALANCE',
+        message: `Solde nul ou négatif (${fin.remainingAmount} FCFA) — relance injustifiée.`,
+      });
+    }
+    if (inv.hasDispute === 1 && db.organization.autoSuspendOnDispute !== false) {
+      checks.push({
+        ok: false,
+        code: 'DISPUTE_OPEN',
+        message: `Litige ouvert sur ${inv.reference} — envoi suspendu automatiquement.`,
+      });
+    }
+    if (cli.isArchived === 1) {
+      checks.push({
+        ok: false,
+        code: 'CLIENT_ARCHIVED',
+        message: 'Client archivé — préférences de contact invalides.',
+      });
+    }
+    if (rem.channel === 'EMAIL' && !cli.email) {
+      checks.push({
+        ok: false,
+        code: 'MISSING_EMAIL',
+        message: 'Adresse e-mail client manquante.',
+      });
+    }
+    if ((rem.channel === 'WHATSAPP' || rem.channel === 'PHONE') && !cli.phone) {
+      checks.push({
+        ok: false,
+        code: 'MISSING_PHONE',
+        message: 'Numéro de téléphone client manquant.',
+      });
+    }
+
+    const failed = checks.filter((c) => !c.ok);
+    if (failed.length > 0) {
+      rem.status = 'CANCELLED';
+      rem.sentAt = null;
+      logActivity(
+        'REMINDER_CANCELLED',
+        'RECOVERY',
+        req.user.email,
+        rem.subject,
+        `Envoi simulé annulé après recontrôle : ${failed.map((f) => f.message).join(' · ')}`,
+        req.user.id
+      );
+      return res.status(409).json({
+        error: failed[0].message,
+        code: failed[0].code,
+        cancelled: true,
+        checks: failed,
+        reminder: rem,
+      });
+    }
+
+    // Validation humaine implicite si on envoie depuis PREPARED
+    if (rem.status === 'PREPARED') {
+      rem.status = 'VALIDATED';
+      rem.validatedAt = new Date().toISOString();
+    }
+
+    rem.status = 'SENT';
+    rem.sentAt = new Date().toISOString();
+
+    const noticeDocId = `doc-notice-${rem.id}`;
+    if (!db.documents.find((d) => d.id === noticeDocId)) {
+      db.documents.push({
+        id: noticeDocId,
+        organizationId: 'org-default',
+        clientId: inv.clientId,
+        invoiceId: inv.id,
+        paymentId: null,
+        importId: null,
+        docType: 'JUSTIFICATIF_PAIEMENT',
+        title: `Avis de relance & Notice de paiement (Réf: ${inv.reference})`,
+        fileName: `notice_paiement_${inv.reference}.pdf`,
+        mimeType: 'application/pdf',
+        fileSize: 142000,
+        uploadedBy: req.user.email,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const channelLabel =
+      rem.channel === 'WHATSAPP'
+        ? 'WhatsApp Business (simulé)'
+        : rem.channel === 'PHONE'
+          ? 'Appel téléphonique (simulé)'
+          : 'Email professionnel (simulé)';
+    const destination =
+      rem.channel === 'EMAIL' ? cli.email : cli.phone;
+
     logActivity(
-      rem.status === 'SENT' ? 'REMINDER_SENT' : 'REMINDER_VALIDATED',
+      'REMINDER_SENT',
       'RECOVERY',
       req.user.email,
       rem.subject,
-      `Relance mise à jour : Statut ${rem.status} (2 documents joints : facture originale et notice d'instructions de paiement avec QR code).`,
+      `Envoi simulé via ${channelLabel} → ${destination} · facture ${inv.reference} · solde ${fin.remainingAmount.toLocaleString()} FCFA · PJ facture=${rem.attachOriginalInvoice !== false} notice=${rem.attachPaymentInstructions !== false}.`,
       req.user.id
     );
-    res.json(rem);
+
+    const phoneDigits = String(cli.phone || '').replace(/[^0-9]/g, '');
+    const deepLink =
+      rem.channel === 'WHATSAPP' && phoneDigits
+        ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(rem.bodyPreview || '')}`
+        : rem.channel === 'EMAIL' && cli.email
+          ? `mailto:${cli.email}?subject=${encodeURIComponent(rem.subject || '')}&body=${encodeURIComponent(rem.bodyPreview || '')}`
+          : rem.channel === 'PHONE' && phoneDigits
+            ? `tel:+${phoneDigits}`
+            : null;
+
+    return res.json({
+      success: true,
+      simulated: true,
+      message: `Relance transmise en simulation via ${channelLabel}.`,
+      channel: rem.channel,
+      destination,
+      deepLink,
+      reminder: {
+        id: rem.id,
+        status: rem.status,
+        subject: rem.subject,
+        bodyPreview: rem.bodyPreview,
+        sentAt: rem.sentAt,
+        validatedAt: rem.validatedAt,
+        attachOriginalInvoice: rem.attachOriginalInvoice !== false,
+        attachPaymentInstructions: rem.attachPaymentInstructions !== false,
+        clientEmail: cli.email,
+        clientPhone: cli.phone,
+      },
+    });
   });
 
   // AI Reminder Draft Generation with Gemini
