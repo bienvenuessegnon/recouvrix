@@ -304,8 +304,41 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
 
   const handleSendSimulated = async () => {
     if (!selectedReminder) return;
+    if (!editedSubject.trim() || !editedBody.trim()) {
+      notify({
+        tone: 'warning',
+        title: 'Message incomplet',
+        description: 'Corrigez l’objet et le corps du message avant d’envoyer.',
+      });
+      return;
+    }
+    if (selectedReminder.status === 'PREPARED') {
+      notify({
+        tone: 'warning',
+        title: 'Validation requise',
+        description: 'Validez d’abord la relance après relecture, puis envoyez.',
+      });
+      return;
+    }
+    if (selectedReminder.status !== 'VALIDATED') {
+      notify({
+        tone: 'warning',
+        title: 'Envoi impossible',
+        description: 'Seule une relance validée peut être transmise.',
+      });
+      return;
+    }
+
     setSavingAction(true);
     try {
+      // Persister les corrections avant l’ouverture du canal
+      await remindersApi.update(selectedReminder.id, {
+        subject: editedSubject,
+        bodyPreview: editedBody,
+        attachOriginalInvoice: attachInvoice,
+        attachPaymentInstructions: attachPaymentInstructions,
+      });
+
       const result = await remindersApi.send(selectedReminder.id, {
         subject: editedSubject,
         bodyPreview: editedBody,
@@ -328,10 +361,10 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
 
       notify({
         tone: 'success',
-        title: 'Envoi simulé réussi',
+        title: 'Relance prête à transmettre',
         description:
           result.message ||
-          `Transmission ${result.channel} vers ${result.destination || 'le client'} (canal fictif, signalé comme tel).`,
+          `Message ouvert pour ${result.destination || 'le client'} — vérifiez le compte d’envoi puis envoyez.`,
       });
 
       loadReminders();
@@ -728,12 +761,11 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
                     onClick={() => handleSaveDrawer('VALIDATED')}
                     icon={<Check className="w-3.5 h-3.5" />}
                   >
-                    Valider la relance
+                    Valider après relecture
                   </Button>
                 )}
 
-                {(selectedReminder.status === 'VALIDATED' ||
-                  selectedReminder.status === 'PREPARED') && (
+                {selectedReminder.status === 'VALIDATED' && (
                   <Button
                     variant="primary"
                     size="sm"
@@ -741,7 +773,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
                     onClick={() => handleSendSimulated()}
                     icon={<Send className="w-3.5 h-3.5" />}
                   >
-                    Envoyer (simulé)
+                    Envoyer
                   </Button>
                 )}
               </div>
@@ -849,7 +881,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {selectedReminder.status !== 'SENT' && selectedReminder.status !== 'CANCELLED' && (
+                {selectedReminder.status === 'VALIDATED' && (
                   <Button
                     variant="primary"
                     size="sm"
@@ -857,7 +889,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
                     onClick={() => handleSendSimulated()}
                     icon={<Send className="w-3.5 h-3.5" />}
                   >
-                    Envoyer (simulé)
+                    Envoyer
                   </Button>
                 )}
                 {selectedReminder.channel === 'WHATSAPP' && selectedReminder.clientPhone && (

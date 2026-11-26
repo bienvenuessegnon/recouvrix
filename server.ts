@@ -2791,10 +2791,10 @@ ${390 + streamLen}
         code: 'CANCELLED',
       });
     }
-    if (rem.status !== 'VALIDATED' && rem.status !== 'PREPARED') {
+    if (rem.status !== 'VALIDATED') {
       return res.status(409).json({
-        error: 'Seules les relances préparées ou validées peuvent être envoyées.',
-        code: 'INVALID_STATUS',
+        error: 'Validez la relance après relecture avant de l’envoyer.',
+        code: 'NOT_VALIDATED',
       });
     }
 
@@ -2874,10 +2874,12 @@ ${390 + streamLen}
       });
     }
 
-    // Validation humaine implicite si on envoie depuis PREPARED
-    if (rem.status === 'PREPARED') {
-      rem.status = 'VALIDATED';
-      rem.validatedAt = new Date().toISOString();
+    // Validation humaine obligatoire avant envoi
+    if (rem.status !== 'VALIDATED') {
+      return res.status(409).json({
+        error: 'Validez la relance après relecture avant de l’envoyer.',
+        code: 'NOT_VALIDATED',
+      });
     }
 
     rem.status = 'SENT';
