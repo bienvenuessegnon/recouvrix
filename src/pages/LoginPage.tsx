@@ -4,7 +4,6 @@ import { RecouvrixLogo } from '../components/brand/RecouvrixLogo';
 import { AlertBanner, Button, Input, LoadingState } from '../components/ui';
 import { ApiError, authApi, setSessionToken } from '../services/api';
 import type { AuthUser } from '../types/auth';
-import heroBackground from '../assets/images/recouvrix-hero-bg.jpg';
 
 export interface LoginPageProps {
   sessionNotice?: string | null;
@@ -98,18 +97,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col text-[var(--color-ink)]">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#061018]">
-        <img
-          src={heroBackground}
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover object-[70%_35%] opacity-55"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(6,16,24,0.82)_0%,rgba(6,16,24,0.55)_45%,rgba(244,247,248,0.92)_72%,#F4F7F8_100%)]" />
-      </div>
-
-      <header className="border-b border-white/10 bg-[#061018]/40 backdrop-blur-md">
+    <div className="min-h-screen flex flex-col bg-[var(--color-canvas)] text-[var(--color-ink)]">
+      <header className="bg-white border-b border-[var(--color-border)]">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <button
             type="button"
@@ -117,7 +106,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             className="text-left rounded-md"
             aria-label="Retour à l’accueil Recouvrix"
           >
-            <RecouvrixLogo variant="dark" size="sm" />
+            <RecouvrixLogo variant="light" size="sm" />
           </button>
 
           <Button
@@ -125,7 +114,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             size="sm"
             icon={<ArrowLeft className="w-4 h-4" />}
             onClick={onBackToLanding}
-            className="text-white hover:bg-white/10"
           >
             Retour à l’accueil
           </Button>
@@ -139,23 +127,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <LoadingState label="Vérification de la connexion au serveur…" />
             </div>
           ) : !authReady ? (
-            <div className="bg-white border border-[var(--color-border)] rounded-lg p-6 sm:p-8 space-y-5">
-              <RecouvrixLogo variant="light" size="md" />
-              <div className="space-y-2">
-                <h1 className="font-display text-[22px] font-bold text-[var(--color-ink)] leading-tight">
-                  Accès non configuré
-                </h1>
-                <p className="text-[14px] text-[var(--color-ink-secondary)] leading-relaxed">
-                  Les mots de passe de démonstration doivent être définis côté serveur via les secrets
-                  <span className="font-mono text-[13px]"> DEMO_ADMIN_PASSWORD </span>
-                  et
-                  <span className="font-mono text-[13px]"> DEMO_MANAGER_PASSWORD</span>.
-                </p>
+            <div className="bg-white border border-[var(--color-border)] rounded-lg p-6 sm:p-8 space-y-6">
+              <div className="space-y-3">
+                <RecouvrixLogo variant="light" size="md" />
+                <div className="space-y-1">
+                  <h1 className="font-display text-[22px] font-bold text-[var(--color-ink)] leading-tight">
+                    Accès non configuré
+                  </h1>
+                  <p className="text-[14px] text-[var(--color-ink-secondary)] leading-relaxed">
+                    Les secrets serveur DEMO_ADMIN_PASSWORD et DEMO_MANAGER_PASSWORD doivent être
+                    définis pour activer la connexion.
+                  </p>
+                </div>
               </div>
               <AlertBanner
                 tone="warning"
                 title="Configuration requise"
-                description="Sur Render ou Cursor, renseignez ces deux secrets puis redéployez. Aucune initialisation publique n’est autorisée."
+                description="Renseignez les secrets sur Render ou dans votre environnement, puis redémarrez le service."
               />
             </div>
           ) : (
@@ -190,59 +178,72 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               )}
 
               <form onSubmit={handleLoginSubmit} className="space-y-4" noValidate>
-                <Input
-                  id="login-email"
-                  label="Adresse e-mail"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (fieldErrors.email) {
-                      setFieldErrors((prev) => ({ ...prev, email: undefined }));
-                    }
-                  }}
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  error={fieldErrors.email}
-                  placeholder="admin@recouvrix.demo"
-                />
-
                 <div className="space-y-1.5">
                   <Input
-                    id="login-password"
-                    label="Mot de passe"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={password}
+                    id="login-email"
+                    label="Adresse e-mail professionnelle"
+                    type="email"
+                    autoComplete="username"
+                    autoFocus
+                    value={email}
                     onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (fieldErrors.password) {
-                        setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
                       }
                     }}
-                    aria-invalid={Boolean(fieldErrors.password)}
-                    error={fieldErrors.password}
-                    placeholder="Votre mot de passe"
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    error={fieldErrors.email}
+                    placeholder="ex. gestionnaire@entreprise.com"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-ink-secondary)] hover:text-[var(--color-ink)]"
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="login-password"
+                    className="block text-[13px] font-medium text-[var(--color-ink)]"
                   >
-                    {showPassword ? (
-                      <>
-                        <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Masquer le mot de passe</span>
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Afficher le mot de passe</span>
-                      </>
-                    )}
-                  </button>
+                    Mot de passe
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (fieldErrors.password) {
+                          setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                        }
+                      }}
+                      aria-invalid={Boolean(fieldErrors.password)}
+                      className={`w-full min-h-[40px] rounded-md border bg-white px-3 py-2 pr-10 text-[14px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent ${
+                        fieldErrors.password
+                          ? 'border-[var(--color-danger)]'
+                          : 'border-[var(--color-border-strong)]'
+                      }`}
+                      placeholder="Votre mot de passe"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" aria-hidden="true" />
+                      ) : (
+                        <Eye className="w-4 h-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
+                  {fieldErrors.password && (
+                    <p className="text-[12px] font-medium text-[var(--color-danger)]" role="alert">
+                      {fieldErrors.password}
+                    </p>
+                  )}
                 </div>
 
                 <Button
