@@ -10,7 +10,6 @@ import {
   Save,
   ShieldCheck,
   Smartphone,
-  Sparkles,
 } from 'lucide-react';
 import {
   AlertBanner,
@@ -316,15 +315,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser }) => {
         {activeTab === 'rules' && (
           <div className="bg-white border border-[var(--color-border)] rounded-lg p-6 shadow-sm space-y-5">
             <div className="flex items-center gap-3 pb-4 border-b border-[var(--color-border)]">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700">
-                <Sparkles className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700">
+                <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-base font-semibold text-[var(--color-ink)]">
-                  Règles métier & Intelligence Artificielle
+                  Règles de recouvrement
                 </h3>
                 <p className="text-xs text-[var(--color-ink-muted)]">
-                  Paramètres de suspension et configuration du modèle d’assistance documentaire.
+                  Suspension des relances, délais et aide à la rédaction des messages.
                 </p>
               </div>
             </div>
@@ -352,14 +351,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUser }) => {
 
               <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex items-start justify-between gap-4">
                 <div>
-                  <div className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
-                    <span>Assistance rédactionnelle intelligente (Gemini)</span>
-                    <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">
-                      gemini-4-hydrogen
-                    </span>
+                  <div className="font-semibold text-sm text-slate-900">
+                    Aide à la rédaction des relances
                   </div>
                   <div className="text-xs text-slate-600 mt-0.5">
-                    Active l'analyse des factures scannées, l’aide à l’importation de documents comptables et la rédaction assistée de messages multicanaux.
+                    Propose un texte de relance à partir du solde, de l’échéance et du canal. La validation reste humaine.
                   </div>
                 </div>
                 <input

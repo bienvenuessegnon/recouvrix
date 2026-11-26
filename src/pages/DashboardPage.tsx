@@ -9,7 +9,6 @@ import {
   HandCoins,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Trash2,
   UserCheck,
 } from 'lucide-react';
@@ -137,24 +136,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const handleRefreshAi = async () => {
     setRefreshingAi(true);
     try {
-      const res = await dashboardApi.refreshAi();
-      setData((prev) => (prev ? { ...prev, aiAdvisory: res.aiAdvisory } : prev));
-      if (res.aiAdvisory.status === 'available') {
-        await loadDashboard(period);
-        notify({
-          tone: 'success',
-          title: 'Analyse IA actualisée',
-          description: 'Les recommandations ont été régénérées à partir des dossiers actuels.',
-        });
-      } else {
-        notify({
-          tone: 'warning',
-          title: 'Analyse IA indisponible',
-          description:
-            res.aiAdvisory.message ||
-            'Le service d’analyse IA ne répond pas pour le moment.',
-        });
-      }
+      await loadDashboard(period);
+      notify({
+        tone: 'success',
+        title: 'Priorités actualisées',
+        description: 'La file du jour a été recalculée à partir des dossiers actuels.',
+      });
     } catch (err) {
       notify({
         tone: 'error',
@@ -162,7 +149,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         description:
           err instanceof ApiError
             ? err.message
-            : 'Impossible de joindre le service d’analyse.',
+            : 'Impossible de recalculer les priorités.',
       });
     } finally {
       setRefreshingAi(false);
@@ -243,7 +230,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   if (!data) return null;
 
-  const { metrics, aiAdvisory, recentActivity, adminSupervision } = data;
+  const { metrics, recentActivity, adminSupervision } = data;
   const { kpis, counts } = metrics;
 
   return (
@@ -322,14 +309,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
             <div className="p-3.5 rounded-md bg-[var(--color-canvas)] border border-[var(--color-border)] space-y-1">
               <span className="text-[12px] text-[var(--color-ink-muted)]">
-                État du système et de l’IA
+                État du système
               </span>
               <div className="pt-1 flex flex-wrap gap-1.5">
                 <StatusBadge tone="success" label="Base active" />
-                <StatusBadge
-                  tone={adminSupervision.aiAvailable ? 'info' : 'warning'}
-                  label={adminSupervision.aiAvailable ? 'IA active' : 'IA indisponible'}
-                />
+                <StatusBadge tone="success" label="Services opérationnels" />
               </div>
             </div>
           </div>
@@ -568,34 +552,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 loading={refreshingAi}
                 onClick={handleRefreshAi}
               >
-                Actualiser l’analyse IA
+                Actualiser les priorités
               </Button>
-            </div>
-
-            {/* Statut explicite du moteur IA */}
-            <div className="px-5 pt-4">
-              {aiAdvisory.status === 'available' ? (
-                <div className="bg-[var(--color-primary-soft)] border border-blue-200 rounded-md p-3.5 flex items-start gap-3">
-                  <Sparkles
-                    className="w-4 h-4 text-[var(--color-primary)] shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
-                  <div className="space-y-1 text-[13px]">
-                    <p className="font-semibold text-[var(--color-ink)]">
-                      Synthèse d’assistance IA (décision finale conservée par le gestionnaire)
-                    </p>
-                    <p className="text-[var(--color-ink-secondary)] leading-relaxed">
-                      {aiAdvisory.executiveSummary}
-                    </p>
-                  </div>
-                </div>
-              ) : aiAdvisory.status === 'unavailable' ? (
-                <AlertBanner
-                  tone="warning"
-                  title="Assistance IA temporairement indisponible"
-                  description={aiAdvisory.message}
-                />
-              ) : null}
             </div>
 
             <div className="p-5">
@@ -625,15 +583,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                               · {formatDelayDays(item.delayDays)}
                             </span>
                           )}
-                          {item.isAiGenerated && (
-                            <StatusBadge tone="info" label="Recommandation IA" />
-                          )}
                         </div>
 
                         <p className="text-[13px] text-[var(--color-ink-secondary)] leading-relaxed">
-                          {item.isAiGenerated && item.aiJustification
-                            ? item.aiJustification
-                            : item.reason}
+                          {item.reason}
                         </p>
                       </div>
 

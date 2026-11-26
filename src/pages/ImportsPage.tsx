@@ -213,7 +213,7 @@ export const ImportsPage: React.FC<ImportsPageProps> = ({ initialFilter, onNavig
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Importation et extraction intelligente</h2>
+            <h2 className="text-xl font-bold text-slate-900">Importation du portefeuille</h2>
             <p className="text-sm text-slate-600">
               Alimentez votre portefeuille de créances à partir de fichiers CSV, Excel ou factures PDF.
             </p>
@@ -357,7 +357,7 @@ export const ImportsPage: React.FC<ImportsPageProps> = ({ initialFilter, onNavig
       {/* STEP 2: ANALYSIS & AI EXTRACTION LOADING */}
       {step === 2 && (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-xs">
-          <LoadingState label="Analyse intelligente du document et extraction des créances en cours..." />
+          <LoadingState label="Analyse du document et extraction des créances en cours..." />
         </div>
       )}
 

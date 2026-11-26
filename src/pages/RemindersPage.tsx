@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Search,
   Send,
-  Sparkles,
 } from 'lucide-react';
 import {
   AlertBanner,
@@ -243,17 +242,14 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
       setEditedBody(draft.body);
       notify({
         tone: 'success',
-        title: 'Brouillon généré par IA Gemini',
-        description:
-          draft.aiGenerated
-            ? 'Message rédigé avec succès selon le ton sélectionné.'
-            : 'Modèle standard appliqué avec succès.',
+        title: 'Texte proposé',
+        description: 'Le message a été prérempli. Relisez-le avant validation.',
       });
     } catch {
       notify({
         tone: 'error',
-        title: 'Échec de génération',
-        description: 'Le service de rédaction IA est temporairement indisponible.',
+        title: 'Proposition indisponible',
+        description: 'Impossible de proposer un texte pour le moment. Rédigez manuellement.',
       });
     } finally {
       setAiGenerating(false);
@@ -891,53 +887,9 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
               </div>
             </div>
 
-            {/* AI Assistant Section */}
-            <div className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 border border-indigo-200 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-md bg-indigo-600 text-white flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-[14px] font-semibold text-indigo-950">
-                      Rédacteur intelligent Gemini
-                    </h3>
-                    <p className="text-[12px] text-indigo-700">
-                      Génération d’un message personnalisé conforme aux montants et coordonnées
-                      officielles.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={aiTone}
-                    onChange={(e) =>
-                      setAiTone(e.target.value as 'COURTEOUS' | 'FIRM' | 'FORMAL_NOTICE')
-                    }
-                    options={[
-                      { value: 'COURTEOUS', label: 'Ton : Courtois' },
-                      { value: 'FIRM', label: 'Ton : Ferme & Pro' },
-                      { value: 'FORMAL_NOTICE', label: 'Ton : Mise en demeure' },
-                    ]}
-                    className="text-xs py-1"
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={aiGenerating}
-                    onClick={handleGenerateAi}
-                    icon={<Sparkles className="w-3.5 h-3.5" />}
-                  >
-                    Rédiger
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             {/* Editable Fields + Aperçu email client */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Tabs
                   variant="segmented"
                   activeId={composeView}
@@ -947,9 +899,28 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({
                     { id: 'preview', label: 'Aperçu email client' },
                   ]}
                 />
-                <span className="hidden sm:inline text-[11px] text-[var(--color-ink-muted)]">
-                  WYSIWYG · ce que le client recevra
-                </span>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={aiTone}
+                    onChange={(e) =>
+                      setAiTone(e.target.value as 'COURTEOUS' | 'FIRM' | 'FORMAL_NOTICE')
+                    }
+                    options={[
+                      { value: 'COURTEOUS', label: 'Ton courtois' },
+                      { value: 'FIRM', label: 'Ton ferme' },
+                      { value: 'FORMAL_NOTICE', label: 'Mise en demeure' },
+                    ]}
+                    className="text-xs py-1"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={aiGenerating}
+                    onClick={handleGenerateAi}
+                  >
+                    Proposer un texte
+                  </Button>
+                </div>
               </div>
 
               {composeView === 'edit' ? (
