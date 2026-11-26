@@ -21,11 +21,39 @@ export interface StoredSession {
   expiresAt: number;
 }
 
-const dataDir = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
-fs.mkdirSync(dataDir, { recursive: true });
+function resolveDataDir(): string {
+  const candidates = [
+    process.env.DATA_DIR,
+    path.resolve(process.cwd(), 'data'),
+    path.join('/tmp', 'recouvrix-data'),
+  ].filter(Boolean) as string[];
 
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch {
+      // try next
+    }
+  }
+  // Last resort: in-memory path under /tmp
+  const fallback = path.join('/tmp', `recouvrix-${process.pid}`);
+  fs.mkdirSync(fallback, { recursive: true });
+  return fallback;
+}
+
+const dataDir = resolveDataDir();
 const dbPath = path.join(dataDir, 'recouvrix-demo.sqlite');
-const sql = new DatabaseSync(dbPath);
+
+let sql: DatabaseSync;
+try {
+  sql = new DatabaseSync(dbPath);
+  console.log(`SQLite démo ouvert : ${dbPath}`);
+} catch (err) {
+  console.error('Échec ouverture SQLite fichier, repli :memory:', err);
+  sql = new DatabaseSync(':memory:');
+}
 
 sql.exec(`
   CREATE TABLE IF NOT EXISTS users (
