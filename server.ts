@@ -3202,13 +3202,15 @@ MESSAGE:
           createdAt: new Date().toISOString(),
         });
       }
+      payment.receiptDocumentId = docId;
+      payment.receiptFileName = `attestation_${receipt.receiptNumber}.pdf`;
 
       logActivity(
         'PAYMENT_CONFIRMED',
         'RECOVERY',
         req.user.email,
         inv.reference,
-        `Paiement ${payment.reference} de ${payment.amount.toLocaleString()} FCFA confirmé sur la facture ${inv.reference}. Justificatif ${receipt.receiptNumber} émis.`,
+        `Paiement ${payment.reference} de ${payment.amount.toLocaleString()} FCFA confirmé sur la facture ${inv.reference}. Quittance ${receipt.receiptNumber} émise — confirmation de recouvrement prête à envoyer.`,
         req.user.id
       );
 
@@ -3224,18 +3226,31 @@ MESSAGE:
       }
     }
 
+    const cli = db.clients.find((c) => c.id === payment.clientId);
     res.json({
-      payment,
+      payment: {
+        ...payment,
+        clientName: cli?.name || 'Client',
+        clientEmail: cli?.email || null,
+        clientPhone: cli?.phone || null,
+        invoiceReference: inv?.reference || null,
+      },
       receipt,
       message: receipt?.financials.isFullyPaid
-        ? 'Paiement confirmé. La facture est intégralement soldée !'
-        : 'Paiement partiel confirmé avec succès.',
+        ? 'Paiement confirmé. La facture est intégralement soldée — vous pouvez envoyer la confirmation de recouvrement au client.'
+        : 'Paiement partiel confirmé — vous pouvez envoyer la confirmation de recouvrement au client.',
     });
   });
 
   app.get('/api/payments/:id/receipt', authenticate, (req: any, res) => {
     const payment = db.payments.find((p) => p.id === req.params.id);
     if (!payment) return res.status(404).json({ error: 'Paiement introuvable.' });
+    if (payment.status !== 'CONFIRMED' && payment.status !== 'RECORDED') {
+      return res.status(409).json({
+        error: 'La quittance n’est disponible qu’après confirmation de l’encaissement.',
+        code: 'NOT_CONFIRMED',
+      });
+    }
     const inv = db.invoices.find((i) => i.id === payment.invoiceId);
     if (!inv) return res.status(404).json({ error: 'Facture associée introuvable.' });
 
@@ -3246,26 +3261,92 @@ MESSAGE:
   app.post('/api/payments/:id/receipt/send', authenticate, (req: any, res) => {
     const payment = db.payments.find((p) => p.id === req.params.id);
     if (!payment) return res.status(404).json({ error: 'Paiement introuvable.' });
+    if (payment.status !== 'CONFIRMED' && payment.status !== 'RECORDED') {
+      return res.status(409).json({
+        error: 'Confirmez d’abord l’encaissement avant d’envoyer la confirmation de recouvrement.',
+        code: 'NOT_CONFIRMED',
+      });
+    }
     const inv = db.invoices.find((i) => i.id === payment.invoiceId);
     if (!inv) return res.status(404).json({ error: 'Facture associée introuvable.' });
 
-    const channel = req.body?.channel || 'EMAIL';
+    const channel = String(req.body?.channel || 'EMAIL').toUpperCase();
+    if (channel !== 'EMAIL' && channel !== 'WHATSAPP') {
+      return res.status(400).json({ error: 'Canal invalide (EMAIL ou WHATSAPP).', code: 'BAD_CHANNEL' });
+    }
+
     const cli = db.clients.find((c) => c.id === payment.clientId);
-    const receiptNum = `REC-${payment.reference.replace(/[^0-9]/g, '') || payment.id.replace('pay-', '')}`;
+    const receipt = buildPaymentReceipt(payment, inv, req.user.email);
+    const receiptNum = receipt.receiptNumber;
+    const clientName = cli?.name || 'Client';
+    const amountLabel = payment.amount.toLocaleString('fr-FR');
+    const remainingLabel = receipt.financials.newRemaining.toLocaleString('fr-FR');
+    const settledLine = receipt.financials.isFullyPaid
+      ? `La facture ${inv.reference} est désormais intégralement soldée.`
+      : `Il reste un solde de ${remainingLabel} FCFA sur la facture ${inv.reference}.`;
+
+    const subject = `Confirmation de recouvrement — ${receiptNum} (${inv.reference})`;
+    const body = `Bonjour ${clientName},
+
+Nous accusons réception de votre règlement de ${amountLabel} FCFA (réf. paiement ${payment.reference}) au titre de la facture ${inv.reference}.
+
+${settledLine}
+
+Quittance / attestation : ${receiptNum}
+Mode déclaré : ${payment.paymentMethod}
+Date de confirmation : ${new Date(payment.confirmedAt || Date.now()).toLocaleString('fr-FR')}
+
+Cette confirmation est simulée dans Recouvrix (démonstration) ; le Mobile Money et les virements restent fictifs et signalés comme tels.
+
+Cordialement,
+Service Recouvrement — ${db.organization.name}
+${db.organization.phone}
+${db.organization.email}`;
+
+    if (channel === 'EMAIL' && !cli?.email) {
+      return res.status(409).json({
+        error: 'Adresse e-mail client manquante — impossible d’envoyer la confirmation.',
+        code: 'MISSING_EMAIL',
+      });
+    }
+    if (channel === 'WHATSAPP' && !cli?.phone) {
+      return res.status(409).json({
+        error: 'Numéro WhatsApp client manquant — impossible d’envoyer la confirmation.',
+        code: 'MISSING_PHONE',
+      });
+    }
+
+    const phoneDigits = String(cli?.phone || '').replace(/[^0-9]/g, '');
+    const deepLink =
+      channel === 'WHATSAPP' && phoneDigits
+        ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(body)}`
+        : channel === 'EMAIL' && cli?.email
+          ? `mailto:${cli.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+          : null;
+
+    const destination = channel === 'WHATSAPP' ? cli?.phone || null : cli?.email || null;
+    const channelLabel = channel === 'WHATSAPP' ? 'WhatsApp Business (simulé)' : 'Email professionnel (simulé)';
 
     logActivity(
       'RECEIPT_TRANSMITTED',
       'RECOVERY',
       req.user.email,
       receiptNum,
-      `Transmission du justificatif de paiement ${receiptNum} au client ${cli?.name || 'Client'} par ${channel}.`,
+      `Confirmation de recouvrement ${receiptNum} transmise au client ${clientName} via ${channelLabel} → ${destination}.`,
       req.user.id
     );
 
     res.json({
       success: true,
-      message: `Justificatif ${receiptNum} préparé et transmis via ${channel === 'WHATSAPP' ? 'WhatsApp Business' : 'Email'}.`,
+      simulated: true,
+      message: `Confirmation de recouvrement ${receiptNum} transmise via ${channelLabel}.`,
       channel,
+      destination,
+      deepLink,
+      subject,
+      body,
+      receiptNumber: receiptNum,
+      documentId: receipt.documentId,
     });
   });
 

@@ -7,9 +7,12 @@ import {
   Download,
   FileCheck2,
   FileText,
+  Mail,
+  MessageSquare,
   Plus,
   RefreshCw,
   Search,
+  Send,
 } from 'lucide-react';
 import {
   AlertBanner,
@@ -30,9 +33,9 @@ import {
   formatDateTime,
   formatNumber,
 } from '../design-system/formatters';
-import { documentsApi, invoicesApi, paymentsApi } from '../services/api';
+import { ApiError, documentsApi, invoicesApi, paymentsApi } from '../services/api';
 import type { InvoiceListItem } from '../types/invoices';
-import type { PaymentItem, PaymentStatus } from '../types/payments';
+import type { PaymentItem, PaymentReceipt, PaymentStatus } from '../types/payments';
 
 export interface PaymentsPageProps {
   initialFilter?: string;
@@ -88,6 +91,11 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [processingAction, setProcessingAction] = useState<boolean>(false);
   const [showRejectForm, setShowRejectForm] = useState<boolean>(false);
+  const [confirmedReceipt, setConfirmedReceipt] = useState<PaymentReceipt | null>(null);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [confirmationSentChannel, setConfirmationSentChannel] = useState<
+    'EMAIL' | 'WHATSAPP' | null
+  >(null);
 
   // New payment declaration modal
   const [declareModalOpen, setDeclareModalOpen] = useState<boolean>(false);
@@ -122,32 +130,90 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({
     loadPayments();
   }, [loadPayments]);
 
-  const handleOpenDrawer = (item: PaymentItem) => {
+  const handleOpenDrawer = async (item: PaymentItem) => {
     setSelectedPayment(item);
     setShowRejectForm(false);
     setRejectionReason('');
+    setConfirmedReceipt(null);
+    setConfirmationSentChannel(null);
+    if (item.status === 'CONFIRMED' || item.status === 'RECORDED') {
+      try {
+        const receipt = await paymentsApi.getReceipt(item.id);
+        setConfirmedReceipt(receipt);
+      } catch {
+        // Quittance indisponible : l’envoi reste possible côté API après recontrôle
+      }
+    }
   };
 
   const handleConfirmPayment = async () => {
     if (!selectedPayment) return;
     setProcessingAction(true);
     try {
-      await paymentsApi.confirm(selectedPayment.id);
+      const result = await paymentsApi.confirm(selectedPayment.id);
+      setSelectedPayment({
+        ...selectedPayment,
+        ...result.payment,
+        status: 'CONFIRMED',
+        confirmedAt: result.payment.confirmedAt || new Date().toISOString(),
+        receiptDocumentId:
+          result.payment.receiptDocumentId || result.receipt?.documentId || null,
+        receiptFileName:
+          result.payment.receiptFileName ||
+          (result.receipt ? `attestation_${result.receipt.receiptNumber}.pdf` : null),
+        invoiceRemainingAmount: result.receipt
+          ? result.receipt.financials.newRemaining
+          : Math.max(0, selectedPayment.invoiceRemainingAmount - selectedPayment.amount),
+      });
+      setConfirmedReceipt(result.receipt);
+      setConfirmationSentChannel(null);
       notify({
         tone: 'success',
-        title: 'Paiement confirmé',
-        description: `Le paiement ${selectedPayment.reference} a été validé et le solde de la facture a été ajusté.`,
+        title: 'Encaissement confirmé',
+        description:
+          result.message ||
+          `Paiement ${selectedPayment.reference} imputé — quittance prête à envoyer au client.`,
       });
-      setSelectedPayment(null);
       loadPayments();
-    } catch {
+    } catch (err) {
       notify({
         tone: 'error',
         title: 'Erreur',
-        description: 'Échec de confirmation du paiement.',
+        description:
+          err instanceof ApiError ? err.message : 'Échec de confirmation du paiement.',
       });
     } finally {
       setProcessingAction(false);
+    }
+  };
+
+  const handleSendRecoveryConfirmation = async (channel: 'EMAIL' | 'WHATSAPP') => {
+    if (!selectedPayment) return;
+    setSendingConfirmation(true);
+    try {
+      const result = await paymentsApi.sendReceipt(selectedPayment.id, channel);
+      if (result.deepLink) {
+        window.open(result.deepLink, '_blank', 'noopener,noreferrer');
+      }
+      setConfirmationSentChannel(channel);
+      notify({
+        tone: 'success',
+        title: 'Confirmation de recouvrement envoyée',
+        description:
+          result.message ||
+          `Quittance transmise en simulation via ${channel === 'WHATSAPP' ? 'WhatsApp' : 'e-mail'}.`,
+      });
+    } catch (err) {
+      notify({
+        tone: 'error',
+        title: 'Envoi impossible',
+        description:
+          err instanceof ApiError
+            ? err.message
+            : 'Impossible d’envoyer la confirmation de recouvrement.',
+      });
+    } finally {
+      setSendingConfirmation(false);
     }
   };
 
@@ -460,9 +526,22 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({
                     onClick={handleConfirmPayment}
                     icon={<CheckCircle2 className="w-3.5 h-3.5" />}
                   >
-                    Confirmer & Imputer
+                    Confirmer l’encaissement
                   </Button>
                 </div>
+              )}
+
+              {(selectedPayment.status === 'CONFIRMED' ||
+                selectedPayment.status === 'RECORDED') && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={sendingConfirmation}
+                  onClick={() => handleSendRecoveryConfirmation('EMAIL')}
+                  icon={<Send className="w-3.5 h-3.5" />}
+                >
+                  Envoyer la confirmation
+                </Button>
               )}
             </div>
           )
@@ -483,6 +562,94 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({
                 label={getPaymentStatusBadge(selectedPayment.status).label}
               />
             </div>
+
+            {/* Confirmation de recouvrement — après encaissement */}
+            {(selectedPayment.status === 'CONFIRMED' ||
+              selectedPayment.status === 'RECORDED') && (
+              <div className="border border-emerald-200 bg-emerald-50/60 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <FileCheck2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-emerald-950">
+                      Confirmation de recouvrement
+                    </h4>
+                    <p className="text-xs text-emerald-800 mt-0.5">
+                      L’argent est bien reçu et imputé. Envoyez la quittance au client
+                      (e-mail ou WhatsApp simulés) pour clôturer le parcours.
+                    </p>
+                  </div>
+                </div>
+
+                {confirmedReceipt && (
+                  <div className="grid grid-cols-2 gap-3 text-xs bg-white/70 border border-emerald-100 rounded-md p-3">
+                    <div>
+                      <span className="text-emerald-700 block">N° quittance</span>
+                      <span className="font-semibold text-slate-900">
+                        {confirmedReceipt.receiptNumber}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-700 block">Nouveau solde</span>
+                      <span className="font-semibold text-slate-900 tabular-amount">
+                        {formatCurrency(confirmedReceipt.financials.newRemaining)}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-emerald-700 block">Statut créance</span>
+                      <span className="font-semibold text-slate-900">
+                        {confirmedReceipt.financials.badgeLabel}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {confirmationSentChannel && (
+                  <div className="text-xs font-medium text-emerald-900 bg-emerald-100/80 p-2 rounded flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Confirmation déjà transmise via{' '}
+                    {confirmationSentChannel === 'WHATSAPP' ? 'WhatsApp' : 'e-mail'} (simulé).
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    loading={sendingConfirmation}
+                    onClick={() => handleSendRecoveryConfirmation('EMAIL')}
+                    icon={<Mail className="w-3.5 h-3.5" />}
+                  >
+                    E-mail (simulé)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={sendingConfirmation}
+                    onClick={() => handleSendRecoveryConfirmation('WHATSAPP')}
+                    icon={<MessageSquare className="w-3.5 h-3.5" />}
+                  >
+                    WhatsApp (simulé)
+                  </Button>
+                  {(selectedPayment.receiptDocumentId || confirmedReceipt?.documentId) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Download className="w-3.5 h-3.5" />}
+                      onClick={() =>
+                        documentsApi.download(
+                          selectedPayment.receiptDocumentId ||
+                            confirmedReceipt!.documentId,
+                          selectedPayment.receiptFileName ||
+                            `attestation_${confirmedReceipt?.receiptNumber || 'quittance'}.pdf`
+                        )
+                      }
+                    >
+                      Télécharger la quittance
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Reconciliation Comparison Card */}
             <div className="border border-blue-200 bg-blue-50/50 rounded-lg p-4 space-y-3">

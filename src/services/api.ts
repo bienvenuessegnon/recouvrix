@@ -831,7 +831,18 @@ export const paymentsApi = {
     ),
 
   sendReceipt: (id: string, channel: 'EMAIL' | 'WHATSAPP') =>
-    request<{ success: boolean; message: string; channel: string }>(
+    request<{
+      success: boolean;
+      simulated: boolean;
+      message: string;
+      channel: string;
+      destination: string | null;
+      deepLink: string | null;
+      subject?: string;
+      body?: string;
+      receiptNumber?: string;
+      documentId?: string;
+    }>(
       `/api/payments/${encodeURIComponent(id)}/receipt/send`,
       {
         method: 'POST',
