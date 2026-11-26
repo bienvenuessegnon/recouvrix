@@ -316,16 +316,16 @@ export const ImportsPage: React.FC<ImportsPageProps> = ({ initialFilter, onNavig
               </ul>
               <div className="mt-4 flex flex-col gap-2">
                 <a
-                  href="/sample_creances.csv"
-                  download
+                  href="/api/demo/sample/sample_creances.csv"
+                  download="sample_creances.csv"
                   className="inline-flex items-center gap-2 text-xs font-medium text-blue-700 hover:text-blue-900"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Télécharger l’exemple CSV (5 créances)
                 </a>
                 <a
-                  href="/sample_portefeuille_entree.pdf"
-                  download
+                  href="/api/demo/sample/sample_portefeuille_entree.pdf"
+                  download="sample_portefeuille_entree.pdf"
                   className="inline-flex items-center gap-2 text-xs font-medium text-blue-700 hover:text-blue-900"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />

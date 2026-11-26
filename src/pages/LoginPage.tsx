@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, LockKeyhole, UserPlus } from 'lucide-react';
 import { RecouvrixLogo } from '../components/brand/RecouvrixLogo';
 import { AlertBanner, Button, Input, LoadingState } from '../components/ui';
 import { ApiError, authApi, setSessionToken } from '../services/api';
@@ -12,6 +12,8 @@ export interface LoginPageProps {
   onLoginSuccess: (user: AuthUser, expiresAt: string) => void;
 }
 
+type AuthMode = 'login' | 'register';
+
 export const LoginPage: React.FC<LoginPageProps> = ({
   sessionNotice,
   onClearNotice,
@@ -20,13 +22,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 }) => {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [authReady, setAuthReady] = useState(true);
+  const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [demoHint, setDemoHint] = useState<{
+    adminEmail?: string;
+    managerEmail?: string;
+    passwordHint?: string | null;
+  } | null>(null);
 
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
 
   useEffect(() => {
     let mounted = true;
@@ -34,10 +50,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       try {
         const status = await authApi.getStatus();
         if (mounted) {
+          setRegistrationOpen(status.registrationOpen !== false);
+          setDemoHint(status.demoHints || null);
           if (typeof status.authReady === 'boolean') {
             setAuthReady(status.authReady);
           } else {
-            setAuthReady(Boolean(status.envDemoConfigured));
+            setAuthReady(Boolean(status.envDemoConfigured) || status.registrationOpen !== false);
           }
         }
       } catch (err) {
@@ -59,6 +77,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       mounted = false;
     };
   }, []);
+
+  const fillDemoManager = () => {
+    setMode('login');
+    setEmail(demoHint?.managerEmail || 'gestionnaire@recouvrix.demo');
+    setPassword(demoHint?.passwordHint || 'RecouvrixDemo1');
+    setErrorMessage(null);
+    setFieldErrors({});
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +116,53 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         err instanceof ApiError
           ? err.message
           : 'Problème temporaire de connexion. Veuillez réessayer.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    onClearNotice();
+    setErrorMessage(null);
+
+    const nextFieldErrors: {
+      fullName?: string;
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+    } = {};
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      nextFieldErrors.fullName = 'Indiquez votre nom complet.';
+    }
+    if (!email.trim()) {
+      nextFieldErrors.email = 'Veuillez saisir votre adresse e-mail.';
+    }
+    if (!password || password.length < 8) {
+      nextFieldErrors.password = 'Mot de passe : 8 caractères minimum, avec lettre et chiffre.';
+    }
+    if (password !== confirmPassword) {
+      nextFieldErrors.confirmPassword = 'Les mots de passe ne correspondent pas.';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      return;
+    }
+
+    setFieldErrors({});
+    setSubmitting(true);
+
+    try {
+      const response = await authApi.register(fullName.trim(), email.trim(), password);
+      setSessionToken(response.token);
+      onLoginSuccess(response.user, response.expiresAt);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de créer le compte. Veuillez réessayer.'
       );
     } finally {
       setSubmitting(false);
@@ -152,13 +225,50 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <RecouvrixLogo variant="light" size="md" />
                 <div className="space-y-1">
                   <h1 className="font-display text-[22px] sm:text-[24px] font-bold text-[var(--color-ink)] leading-tight">
-                    Connectez-vous à votre espace
+                    {mode === 'login' ? 'Connexion' : 'Créer un compte'}
                   </h1>
                   <p className="text-[14px] text-[var(--color-ink-muted)]">
-                    Saisissez vos identifiants professionnels pour accéder à Recouvrix.
+                    {mode === 'login'
+                      ? 'Accédez à votre espace Recouvrix ou créez un compte démo en quelques secondes.'
+                      : 'Compte stocké en base SQLite locale — idéal pour la démo BWAI.'}
                   </p>
                 </div>
               </div>
+
+              {registrationOpen && (
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-[var(--color-canvas)] border border-[var(--color-border)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setErrorMessage(null);
+                      setFieldErrors({});
+                    }}
+                    className={`min-h-[40px] rounded-md text-[13px] font-semibold transition-colors ${
+                      mode === 'login'
+                        ? 'bg-white text-[var(--color-ink)] shadow-sm'
+                        : 'text-[var(--color-ink-muted)]'
+                    }`}
+                  >
+                    Se connecter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setErrorMessage(null);
+                      setFieldErrors({});
+                    }}
+                    className={`min-h-[40px] rounded-md text-[13px] font-semibold transition-colors ${
+                      mode === 'register'
+                        ? 'bg-white text-[var(--color-ink)] shadow-sm'
+                        : 'text-[var(--color-ink-muted)]'
+                    }`}
+                  >
+                    Créer un compte
+                  </button>
+                </div>
+              )}
 
               {sessionNotice && (
                 <AlertBanner
@@ -172,16 +282,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {errorMessage && (
                 <AlertBanner
                   tone="error"
-                  title="Connexion impossible"
+                  title={mode === 'login' ? 'Connexion impossible' : 'Inscription impossible'}
                   description={errorMessage}
                 />
               )}
 
-              <form onSubmit={handleLoginSubmit} className="space-y-4" noValidate>
-                <div className="space-y-1.5">
+              {mode === 'login' ? (
+                <form onSubmit={handleLoginSubmit} className="space-y-4" noValidate>
                   <Input
                     id="login-email"
-                    label="Adresse e-mail professionnelle"
+                    label="Adresse e-mail"
                     type="email"
                     autoComplete="username"
                     autoFocus
@@ -194,69 +304,163 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     }}
                     aria-invalid={Boolean(fieldErrors.email)}
                     error={fieldErrors.email}
-                    placeholder="ex. gestionnaire@entreprise.com"
+                    placeholder="ex. vous@entreprise.bj"
                   />
-                </div>
 
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="login-password"
-                    className="block text-[13px] font-medium text-[var(--color-ink)]"
-                  >
-                    Mot de passe
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      required
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (fieldErrors.password) {
-                          setFieldErrors((prev) => ({ ...prev, password: undefined }));
-                        }
-                      }}
-                      aria-invalid={Boolean(fieldErrors.password)}
-                      className={`w-full min-h-[40px] rounded-md border bg-white px-3 py-2 pr-10 text-[14px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent ${
-                        fieldErrors.password
-                          ? 'border-[var(--color-danger)]'
-                          : 'border-[var(--color-border-strong)]'
-                      }`}
-                      placeholder="Votre mot de passe"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
-                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="login-password"
+                      className="block text-[13px] font-medium text-[var(--color-ink)]"
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" aria-hidden="true" />
-                      ) : (
-                        <Eye className="w-4 h-4" aria-hidden="true" />
-                      )}
-                    </button>
+                      Mot de passe
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="login-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        required
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (fieldErrors.password) {
+                            setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                          }
+                        }}
+                        aria-invalid={Boolean(fieldErrors.password)}
+                        className={`w-full min-h-[40px] rounded-md border bg-white px-3 py-2 pr-10 text-[14px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent ${
+                          fieldErrors.password
+                            ? 'border-[var(--color-danger)]'
+                            : 'border-[var(--color-border-strong)]'
+                        }`}
+                        placeholder="Votre mot de passe"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] text-[12px] font-medium"
+                      >
+                        {showPassword ? 'Masquer' : 'Voir'}
+                      </button>
+                    </div>
+                    {fieldErrors.password && (
+                      <p className="text-[12px] font-medium text-[var(--color-danger)]" role="alert">
+                        {fieldErrors.password}
+                      </p>
+                    )}
                   </div>
-                  {fieldErrors.password && (
-                    <p className="text-[12px] font-medium text-[var(--color-danger)]" role="alert">
-                      {fieldErrors.password}
-                    </p>
-                  )}
-                </div>
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  loading={submitting}
-                  icon={<LockKeyhole className="w-4 h-4" />}
-                >
-                  Se connecter
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    loading={submitting}
+                    icon={<LockKeyhole className="w-4 h-4" />}
+                  >
+                    Se connecter
+                  </Button>
+
+                  {demoHint?.passwordHint && (
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-canvas)] p-3 space-y-2">
+                      <p className="text-[12px] text-[var(--color-ink-secondary)] leading-relaxed">
+                        Compte démo prêt :{' '}
+                        <span className="font-medium text-[var(--color-ink)]">
+                          {demoHint.managerEmail}
+                        </span>{' '}
+                        /{' '}
+                        <span className="font-medium text-[var(--color-ink)]">
+                          {demoHint.passwordHint}
+                        </span>
+                      </p>
+                      <Button type="button" variant="secondary" size="sm" fullWidth onClick={fillDemoManager}>
+                        Remplir le compte gestionnaire
+                      </Button>
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <form onSubmit={handleRegisterSubmit} className="space-y-4" noValidate>
+                  <Input
+                    id="register-fullname"
+                    label="Nom complet"
+                    type="text"
+                    autoComplete="name"
+                    autoFocus
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      if (fieldErrors.fullName) {
+                        setFieldErrors((prev) => ({ ...prev, fullName: undefined }));
+                      }
+                    }}
+                    error={fieldErrors.fullName}
+                    placeholder="ex. Amina Bello"
+                  />
+                  <Input
+                    id="register-email"
+                    label="Adresse e-mail"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      }
+                    }}
+                    error={fieldErrors.email}
+                    placeholder="ex. vous@entreprise.bj"
+                  />
+                  <Input
+                    id="register-password"
+                    label="Mot de passe"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (fieldErrors.password) {
+                        setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                      }
+                    }}
+                    error={fieldErrors.password}
+                    placeholder="8+ caractères, lettre et chiffre"
+                  />
+                  <Input
+                    id="register-confirm"
+                    label="Confirmer le mot de passe"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (fieldErrors.confirmPassword) {
+                        setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                      }
+                    }}
+                    error={fieldErrors.confirmPassword}
+                    placeholder="Retapez le mot de passe"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="text-[12px] font-medium text-[var(--color-primary)]"
+                  >
+                    {showPassword ? 'Masquer les mots de passe' : 'Afficher les mots de passe'}
+                  </button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    loading={submitting}
+                    icon={<UserPlus className="w-4 h-4" />}
+                  >
+                    Créer mon compte
+                  </Button>
+                </form>
+              )}
             </div>
           )}
         </div>

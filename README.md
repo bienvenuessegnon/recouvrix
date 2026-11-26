@@ -39,7 +39,7 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
 ## 4. Prérequis et installation locale
 
 ### Prérequis
-- Node.js (v18 ou supérieur)
+- Node.js (v20 ou supérieur, v22 recommandé pour SQLite intégré)
 - npm ou bun
 
 ### Installation
@@ -57,6 +57,11 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
    ```
 4. Accéder à l'application dans le navigateur sur `http://localhost:3847`.
 
+### Connexion démo
+- **Créer un compte** depuis l’écran Connexion (stocké en SQLite `data/recouvrix-demo.sqlite`).
+- Ou compte gestionnaire prêt : `gestionnaire@recouvrix.demo` / `RecouvrixDemo1` (sauf si vous avez défini `DEMO_*_PASSWORD`).
+- Fichiers de test : `/api/demo/sample/sample_creances.csv` et `/api/demo/sample/sample_portefeuille_entree.pdf`.
+
 ### Déploiement (Render recommandé)
 
 Recouvrix est un monolithe Express + Vite : **Render (Web Service)** est le chemin naturel. Vercel conviendrait mal sans découper API et frontend.
@@ -66,7 +71,7 @@ Recouvrix est un monolithe Express + Vite : **Render (Web Service)** est le chem
    - **Build** : `npm ci && npm run build`
    - **Start** : `npm start`
    - **Health** : `/api/health`
-3. Renseigner les secrets : `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, optionnellement `GEMINI_API_KEY`.
+3. Optionnel : secrets `DEMO_ADMIN_PASSWORD`, `DEMO_MANAGER_PASSWORD`, `GEMINI_API_KEY`. Sans secrets démo, les mots de passe locaux `RecouvrixDemo1` s’appliquent.
 
 ### Améliorations produit (pitch)
 

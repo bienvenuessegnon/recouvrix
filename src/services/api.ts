@@ -173,6 +173,16 @@ export const authApi = {
       false
     ),
 
+  register: (fullName: string, email: string, password: string) =>
+    request<LoginResponse>(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({ fullName, email, password }),
+      },
+      false
+    ),
+
   logout: () => request<{ message: string }>('/api/auth/logout', { method: 'POST' }, true),
 
   me: () => request<{ user: AuthUser; expiresAt: string }>('/api/auth/me', { method: 'GET' }, true),
