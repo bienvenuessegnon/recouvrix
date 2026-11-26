@@ -163,16 +163,6 @@ async function request<T>(
 export const authApi = {
   getStatus: () => request<AuthStatusResponse>('/api/auth/status', { method: 'GET' }, false),
 
-  bootstrapDemo: (adminPassword: string, managerPassword: string) =>
-    request<{ message: string }>(
-      '/api/auth/bootstrap',
-      {
-        method: 'POST',
-        body: JSON.stringify({ adminPassword, managerPassword }),
-      },
-      false
-    ),
-
   login: (email: string, password: string) =>
     request<LoginResponse>(
       '/api/auth/login',

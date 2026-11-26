@@ -22,3 +22,5 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+    # Set DEMO_ADMIN_PASSWORD and DEMO_MANAGER_PASSWORD in the Render dashboard
+    # before the first deploy — login will not work until both are present.

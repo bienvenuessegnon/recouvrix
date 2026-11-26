@@ -84,9 +84,9 @@ Deux comptes de présentation sont prévus :
 - **Directeur Financier (Administrateur)** : `admin@recouvrix.demo`
 - **Gestionnaire de recouvrement** : `gestionnaire@recouvrix.demo`
 
-Les mots de passe ne sont **jamais** acceptés à vide :
-- soit via `DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD` (environnement / secrets Cursor),
-- soit via l’écran de **configuration initiale** au premier lancement (bootstrap).
+Les mots de passe sont **obligatoires** via les secrets d’environnement
+`DEMO_ADMIN_PASSWORD` et `DEMO_MANAGER_PASSWORD` (Cursor, Render, `.env` local).
+Il n’existe plus d’initialisation publique des mots de passe.
 
 ---
 

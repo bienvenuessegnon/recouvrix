@@ -1086,68 +1086,44 @@ async function startGateway() {
       process.env.DEMO_ADMIN_PASSWORD && process.env.DEMO_MANAGER_PASSWORD
     );
     res.json({
-      requiresInitialSetup: requiresPasswordBootstrap(db.users),
+      // Passwords come only from DEMO_*_PASSWORD env / secrets — no public bootstrap.
+      requiresInitialSetup: false,
       envDemoConfigured,
+      authReady: !requiresPasswordBootstrap(db.users),
       activeOrganizationName: db.organization.name,
     });
   });
 
-  const bootstrapAttempts: number[] = [];
+  // Public password bootstrap removed: demo passwords must be set via environment secrets.
 
-  app.post('/api/auth/bootstrap', (req, res) => {
-    if (!requiresPasswordBootstrap(db.users)) {
-      return res.status(409).json({
-        error: 'Les comptes de présentation sont déjà initialisés.',
-      });
-    }
+  const loginAttempts = new Map<string, number[]>();
+  const LOGIN_WINDOW_MS = 10 * 60_000;
+  const LOGIN_MAX_ATTEMPTS = 8;
+
+  function assertLoginRateLimit(key: string): string | null {
     const now = Date.now();
-    while (bootstrapAttempts.length && now - bootstrapAttempts[0] > 15 * 60_000) {
-      bootstrapAttempts.shift();
+    const recent = (loginAttempts.get(key) || []).filter((t) => now - t < LOGIN_WINDOW_MS);
+    if (recent.length >= LOGIN_MAX_ATTEMPTS) {
+      return 'Trop de tentatives de connexion. Réessayez dans quelques minutes.';
     }
-    if (bootstrapAttempts.length >= 5) {
-      return res.status(429).json({
-        error: 'Trop de tentatives d’initialisation. Réessayez plus tard.',
-      });
-    }
-    bootstrapAttempts.push(now);
-
-    const { adminPassword, managerPassword } = req.body || {};
-    const adminError = validatePasswordStrength(String(adminPassword || ''));
-    if (adminError) {
-      return res.status(400).json({ error: `Administrateur : ${adminError}` });
-    }
-    const managerError = validatePasswordStrength(String(managerPassword || ''));
-    if (managerError) {
-      return res.status(400).json({ error: `Gestionnaire : ${managerError}` });
-    }
-    const admin = db.users.find((u) => u.email === 'admin@recouvrix.demo');
-    const manager = db.users.find((u) => u.email === 'gestionnaire@recouvrix.demo');
-    if (!admin || !manager) {
-      return res.status(500).json({ error: 'Comptes de démonstration introuvables.' });
-    }
-    admin.passwordHash = hashPassword(String(adminPassword));
-    admin.updatedAt = new Date().toISOString();
-    manager.passwordHash = hashPassword(String(managerPassword));
-    manager.updatedAt = new Date().toISOString();
-    logActivity(
-      'BOOTSTRAP_COMPLETE',
-      'SECURITY',
-      'system',
-      null,
-      'Mots de passe des comptes de présentation initialisés.'
-    );
-    res.status(201).json({
-      message: 'Les comptes de présentation ont été initialisés de manière sécurisée.',
-    });
-  });
+    recent.push(now);
+    loginAttempts.set(key, recent);
+    return null;
+  }
 
   app.post('/api/auth/login', (req, res) => {
     const { email, password } = req.body || {};
     const cleanEmail = String(email || '').trim().toLowerCase();
     const suppliedPassword = String(password || '');
+    const rateKey = `${req.ip || 'unknown'}:${cleanEmail || 'none'}`;
+    const rateError = assertLoginRateLimit(rateKey);
+    if (rateError) {
+      return res.status(429).json({ error: rateError });
+    }
     if (requiresPasswordBootstrap(db.users)) {
-      return res.status(403).json({
-        error: 'Configuration initiale requise. Définissez d’abord les mots de passe des comptes.',
+      return res.status(503).json({
+        error:
+          'Authentification non configurée. Définissez DEMO_ADMIN_PASSWORD et DEMO_MANAGER_PASSWORD sur le serveur.',
       });
     }
     const user = db.users.find((u) => u.email.toLowerCase() === cleanEmail);

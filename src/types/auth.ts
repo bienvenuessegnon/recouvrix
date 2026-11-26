@@ -26,6 +26,8 @@ export interface ActivityLogEntry {
 export interface AuthStatusResponse {
   requiresInitialSetup: boolean;
   envDemoConfigured: boolean;
+  authReady?: boolean;
+  activeOrganizationName?: string;
 }
 
 export interface LoginResponse {
