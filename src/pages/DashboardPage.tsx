@@ -13,7 +13,6 @@ import {
   Trash2,
   UserCheck,
 } from 'lucide-react';
-import { DemoGuideBanner } from '../components/dashboard/DemoGuideBanner';
 import { ReceivablesChart } from '../components/dashboard/ReceivablesChart';
 import {
   AlertBanner,
@@ -249,41 +248,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="space-y-6">
-      <DemoGuideBanner onNavigate={onNavigate} />
-
-      {/* Mention claire lorsque le jeu de données de présentation est actif */}
-      {metrics.isDemoDataActive && !metrics.isEmpty && (
-        <AlertBanner
-          tone="info"
-          title="Jeu de données de présentation actif"
-          description="Les créances affichées proviennent du jeu de démonstration centralisé afin d’illustrer les règles de calcul. Vous pouvez importer vos propres données ou réinitialiser cet environnement."
-          action={
-            user.role === 'ADMIN' ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={<RefreshCw className="w-3.5 h-3.5" />}
-                  loading={demoActionLoading}
-                  onClick={handleSeedDemo}
-                >
-                  Réinitialiser les données de démonstration
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Trash2 className="w-3.5 h-3.5" />}
-                  disabled={demoActionLoading}
-                  onClick={() => setConfirmClearOpen(true)}
-                >
-                  Tester avec une base vide
-                </Button>
-              </div>
-            ) : undefined
-          }
-        />
-      )}
-
       {/* Supervision Administrateur : vue organisationnelle sans palmarès individuel trompeur */}
       {user.role === 'ADMIN' && adminSupervision && (
         <section className="bg-white border border-[var(--color-border)] rounded-lg p-5 space-y-4">
