@@ -46,7 +46,6 @@ const GROUP_LABELS: Record<NavigationItemConfig['group'], string> = {
   pilotage: 'Pilotage',
   operations: 'Recouvrement',
   administration: 'Administration & Audit',
-  fondation: 'Référentiel visuel',
 };
 
 export interface AppShellNotification {
