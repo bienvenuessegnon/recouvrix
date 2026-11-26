@@ -113,15 +113,14 @@ export type NavigationSectionId =
   | 'reminders'
   | 'payments'
   | 'history'
-  | 'settings'
-  | 'design-system';
+  | 'settings';
 
 export interface NavigationItemConfig {
   id: NavigationSectionId;
   path: string;
   label: string;
   description: string;
-  group: 'pilotage' | 'operations' | 'administration' | 'fondation';
+  group: 'pilotage' | 'operations' | 'administration';
   allowedRoles: Array<'ADMIN' | 'MANAGER'>;
 }
 
@@ -206,17 +205,9 @@ export const NAVIGATION_ITEMS: NavigationItemConfig[] = [
     group: 'administration',
     allowedRoles: ['ADMIN'],
   },
-  {
-    id: 'design-system',
-    path: '/systeme-design',
-    label: 'Documentation & Composants UI',
-    description: 'Identité visuelle, palette financière, typographie et composants réutilisables (accès profil uniquement).',
-    group: 'fondation',
-    allowedRoles: ['ADMIN', 'MANAGER'],
-  },
 ];
 
-/** Sections métier affichées dans la barre latérale (hors référentiel technique). */
+/** Sections métier affichées dans la barre latérale. */
 export const SIDEBAR_NAVIGATION_GROUPS: Array<NavigationItemConfig['group']> = [
   'pilotage',
   'operations',

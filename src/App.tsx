@@ -8,7 +8,6 @@ import { NAVIGATION_ITEMS, NavigationSectionId } from './design-system/tokens';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { DesignSystemShowcase } from './pages/DesignSystemShowcase';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { LandingPage } from './pages/LandingPage';
@@ -315,8 +314,6 @@ function AppContent() {
 
       {activeSection === 'history' && <SecurityLogsPage currentUser={user} />}
 
-      {activeSection === 'design-system' && <DesignSystemShowcase />}
-
       {activeSection !== 'supervision' &&
         activeSection !== 'dashboard' &&
         activeSection !== 'clients' &&
@@ -326,8 +323,7 @@ function AppContent() {
         activeSection !== 'payments' &&
         activeSection !== 'settings' &&
         activeSection !== 'users' &&
-        activeSection !== 'history' &&
-        activeSection !== 'design-system' && (
+        activeSection !== 'history' && (
           <ModulePlaceholderPage
             moduleConfig={currentModule}
             activeFilter={activeFilter}

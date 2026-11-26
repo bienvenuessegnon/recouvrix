@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Palette,
   Search,
   Send,
   Settings,
@@ -41,7 +40,6 @@ const NAV_ICONS: Record<NavigationSectionId, React.ComponentType<{ className?: s
   payments: CreditCard,
   history: History,
   settings: Settings,
-  'design-system': Palette,
 };
 
 const GROUP_LABELS: Record<NavigationItemConfig['group'], string> = {
@@ -436,17 +434,6 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </p>
                   </div>
                   <div className="p-1.5 space-y-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        handleSelectNav('design-system');
-                      }}
-                      className="w-full px-3 py-2 rounded text-[13px] font-medium text-left text-[var(--color-ink)] hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Palette className="w-4 h-4 shrink-0 text-[var(--color-ink-muted)]" aria-hidden="true" />
-                      <span>Documentation & Composants UI</span>
-                    </button>
                     <button
                       type="button"
                       disabled={loggingOut}

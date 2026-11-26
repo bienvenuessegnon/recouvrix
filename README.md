@@ -77,7 +77,7 @@ Dans de nombreuses entreprises, le recouvrement des créances souffre de facture
 
 ### Améliorations produit (pitch)
 
-- Design System retiré de la barre latérale métier ; accessible via le menu profil (« Documentation & Composants UI »).
+- Interface 100 % métier : la documentation des composants UI n’est plus exposée dans l’application.
 - Recherche universelle globale (`⌘/Ctrl + K`) depuis n’importe quel écran.
 - Bloc « Actions prioritaires du jour » en tête du tableau de bord + filtre de période (30 jours / Trimestre / Année).
 - Timeline visuelle du cycle de vie sur la fiche facture + menu Actions regroupé.
