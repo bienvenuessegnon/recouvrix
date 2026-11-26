@@ -217,7 +217,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </h1>
                   <p className="text-[14px] text-[var(--color-ink-muted)]">
                     {mode === 'login'
-                      ? 'Connectez-vous avec votre e-mail et votre mot de passe.'
+                      ? 'Utilisez le compte que vous avez créé, ou les identifiants définis sur le serveur (secrets DEMO_*).'
                       : 'Créez votre accès démo en quelques secondes, puis importez vos créances.'}
                   </p>
                 </div>
