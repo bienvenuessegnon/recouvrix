@@ -1,9 +1,18 @@
 # Données de test prêtes à l’emploi pour la démo Recouvrix
 
-Pour tester le module **Importation** lors de votre présentation au hackathon BWAI'2026, vous pouvez utiliser le fichier CSV déjà préparé ou copier-coller les informations ci-dessous.
+Pour tester le module **Importation** lors de votre présentation au hackathon BWAI'2026, vous pouvez utiliser le fichier CSV, le PDF d’entrée, ou copier-coller les informations ci-dessous.
+
+## 0. PDF d’entrée (recommandé pour la démo jury)
+Le fichier `public/sample_portefeuille_entree.pdf` contient :
+- le tableau des 5 créances à importer ;
+- 3 factures commerciales simulées avec un **bloc machine-lisible** (`reference=…`, `amount=…`, etc.) ;
+- des **cas d’exception** (litige, gros montant, promesse échue, paiement partiel).
+
+Téléchargeable aussi depuis l’app : `/sample_portefeuille_entree.pdf`.  
+Pour régénérer : `python3 scripts/generate_sample_input_pdf.py`.
 
 ## 1. Fichier CSV prêt à télécharger / uploader
-Le fichier est accessible dans l'application à l'emplacement `/public/sample_creances.csv`. Vous pouvez l'enregistrer sur votre bureau pour le glisser-déposer dans l'écran d'importation de Recouvrix.
+Le fichier est accessible dans l'application à l'emplacement `/public/sample_creances.csv` (URL `/sample_creances.csv`). Vous pouvez l'enregistrer sur votre bureau pour le glisser-déposer dans l'écran d'importation de Recouvrix.
 
 ### Contenu du fichier de test (`sample_creances.csv`) :
 ```csv
